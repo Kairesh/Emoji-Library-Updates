@@ -1,8 +1,8 @@
 {
-  "version": "2.1.0",
+  "version": "2.2.0",
   "name": "Emoji & Icon Studio by Kairesh",
-  "zxpUrl": "https://cdn.jsdelivr.net/gh/Kairesh/Emoji-Library-Updates@main/Emoji-Library-v2.1.0.zxp",
-  "backupZxpUrl": "https://raw.githubusercontent.com/Kairesh/Emoji-Library-Updates/main/Emoji-Library-v2.1.0.zxp",
+  "zxpUrl": "https://raw.githubusercontent.com/Kairesh/Emoji-Library-Updates/main/Emoji-Library-v2.2.0.zxp",
+  "backupZxpUrl": "https://cdn.jsdelivr.net/gh/Kairesh/Emoji-Library-Updates@main/Emoji-Library-v2.2.0.zxp",
   "updateUrl": "https://github.com/Kairesh/Emoji-Library-Updates/releases/latest",
-  "releaseNotes": "v2.1.0 Update: Complete Studio Fix & Enhancements!\n• 200,000+ vector icons stream smoothly via high-speed Node network\n• Fixed After Effects SVG outline creation (pure vector shape layers)\n• All icon libraries (Lucide, Phosphor, Tabler, Heroicons, Brand Logos) render crisply with zero broken images\n• Fully interactive settings drawer with customizable insert size, API configs, and asset storage\n• In-app automatic update manager with Skip and Remind Later options."
+  "releaseNotes": "v2.2.0 Studio Major Update Ready!\n• Full infinite scrolling across 200,000+ vector icons with mousewheel support & custom scrollbar\n• Native vector animation in After Effects (Trim Paths & continuous rotation) for Line MD icons\n• 3-tier emoji fallback: 0 broken emoji boxes (🫦 biting lip, 🫥 dotted face, etc.)\n• Live dynamic counter & streamlined performance"
 }

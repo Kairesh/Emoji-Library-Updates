@@ -52,9 +52,12 @@ const IconEngine = (function () {
 
         let url = "";
         if (!query || query.trim().length === 0) {
-            // Default browsing query: search for common video tags or load specific collection
-            const p = (prefix && prefix !== "all") ? prefix : "lucide";
-            url = `${base}/collection?prefix=${p}`;
+            if (!prefix || prefix === "all") {
+                // When browsing "All Libraries", load popular UI & tech creator icons
+                url = `${base}/search?query=arrow%20user%20heart%20star%20video%20check%20search%20home&limit=${limit}`;
+            } else {
+                url = `${base}/collection?prefix=${prefix}`;
+            }
         } else {
             const encodedQuery = encodeURIComponent(query.trim());
             if (prefix && prefix !== "all") {

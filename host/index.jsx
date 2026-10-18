@@ -171,20 +171,40 @@ var EMOJI_HOST = {
             var layer = comp.layers.add(footageItem);
             layer.name = "Emoji - " + emojiName;
             
-            // Position at center
-            layer.property("ADBE Transform Group").property("ADBE Position").setValue([comp.width / 2, comp.height / 2]);
+            // Position at center (handles separate Dimensions mode in AE)
+            try {
+                var posProp = layer.property("ADBE Transform Group").property("ADBE Position");
+                if (posProp && posProp.canSetValue && posProp.canSetValue([comp.width / 2, comp.height / 2])) {
+                    posProp.setValue([comp.width / 2, comp.height / 2]);
+                } else if (posProp && posProp.value) {
+                    posProp.setValue([comp.width / 2, comp.height / 2]);
+                }
+            } catch (posErr) {
+                try {
+                    // If dimensions are separated into X Position and Y Position
+                    var xProp = layer.property("ADBE Transform Group").property("ADBE Position_0");
+                    var yProp = layer.property("ADBE Transform Group").property("ADBE Position_1");
+                    if (xProp) xProp.setValue(comp.width / 2);
+                    if (yProp) yProp.setValue(comp.height / 2);
+                } catch (sepErr) {}
+            }
             
             // Scale to match target size (with robust fallbacks for SVGs that report 0 width)
-            var w = footageItem.width || layer.source.width || 128;
-            var h = footageItem.height || layer.source.height || 128;
-            if (w <= 0) w = 128;
-            if (h <= 0) h = 128;
+            try {
+                var w = footageItem.width || layer.source.width || 128;
+                var h = footageItem.height || layer.source.height || 128;
+                if (w <= 0) w = 128;
+                if (h <= 0) h = 128;
 
-            if (targetSize) {
-                var scaleX = (targetSize / w) * 100;
-                var scaleY = (targetSize / h) * 100;
-                layer.property("ADBE Transform Group").property("ADBE Scale").setValue([scaleX, scaleY, 100]);
-            }
+                if (targetSize) {
+                    var scaleX = (targetSize / w) * 100;
+                    var scaleY = (targetSize / h) * 100;
+                    var scaleProp = layer.property("ADBE Transform Group").property("ADBE Scale");
+                    if (scaleProp) {
+                        scaleProp.setValue([scaleX, scaleY, 100]);
+                    }
+                }
+            } catch (scaleErr) {}
 
             // If it's an SVG file, enable continuously rasterize (collapse transformation) to prevent blurriness when scaled
             var isSvg = (filePath.toLowerCase().indexOf(".svg") !== -1);
@@ -203,25 +223,31 @@ var EMOJI_HOST = {
                     for (var j = 1; j <= comp.layers.length; j++) {
                         comp.layers[j].selected = false;
                     }
-                    // Select only our imported vector layer
                     layer.selected = true;
                     
+                    var origCount = comp.layers.length;
                     var cmdID = app.findMenuCommandId("Create Shapes from Vector Layer");
-                    if (!cmdID || cmdID === 0) {
-                        cmdID = 3973; // Fallback for localized versions of After Effects
-                    }
+                    if (!cmdID || cmdID === 0) cmdID = 3973;
                     
                     if (cmdID) {
                         app.executeCommand(cmdID);
-                        // The command creates a new shape layer and leaves the original vector layer hidden.
-                        // We delete the original vector layer to keep the timeline clean!
-                        layer.remove();
+                        // Only remove original if a new shape layer was actually generated
+                        if (comp.layers.length > origCount) {
+                            layer.remove();
+                        } else {
+                            layer.enabled = true;
+                            layer.selected = true;
+                        }
+                    } else {
+                        layer.enabled = true;
+                        layer.selected = true;
                     }
                 } catch (shapeErr) {
-                    // Fallback: keep the original vector layer selected if conversion fails
+                    layer.enabled = true;
                     layer.selected = true;
                 }
             } else {
+                layer.enabled = true;
                 layer.selected = true;
             }
 

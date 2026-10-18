@@ -840,6 +840,59 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    // Wire Insert Mode Toggle (Shape vs Text)
+    const insertModeToggle = document.getElementById('insert-mode-toggle');
+    if (insertModeToggle) {
+        insertModeToggle.addEventListener('click', (e) => {
+            const btn = e.target.closest('.toggle-btn');
+            if (!btn) return;
+            insertModeToggle.querySelectorAll('.toggle-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            currentMode = btn.dataset.mode;
+            Settings.set('insertMode', currentMode);
+            const composer = document.getElementById('composer-container');
+            if (composer) {
+                composer.style.display = (currentMode === 'text') ? 'flex' : 'none';
+            }
+        });
+    }
+
+    // Wire Vector Format Toggle (SVG vs PNG)
+    const shapeFormatToggle = document.getElementById('shape-format-toggle');
+    if (shapeFormatToggle) {
+        shapeFormatToggle.addEventListener('click', (e) => {
+            const btn = e.target.closest('.toggle-btn');
+            if (!btn) return;
+            shapeFormatToggle.querySelectorAll('.toggle-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            currentFormat = btn.dataset.format;
+            Settings.set('shapeFormat', currentFormat);
+        });
+    }
+
+    // Wire Emoji Artwork Style Select
+    const styleSelect = document.getElementById('style-select');
+    if (styleSelect) {
+        styleSelect.value = currentStyle;
+        styleSelect.addEventListener('change', () => {
+            currentStyle = styleSelect.value;
+            Settings.set('style', currentStyle);
+            if (currentTab === 'emojis') renderEmojis(true);
+        });
+    }
+
+    // Wire Size Slider
+    const sizeSlider = document.getElementById('size-slider');
+    const sizeValue = document.getElementById('size-value');
+    if (sizeSlider && sizeValue) {
+        sizeSlider.value = Settings.get('insertSize') || 256;
+        sizeValue.textContent = `${sizeSlider.value}px`;
+        sizeSlider.addEventListener('input', () => {
+            sizeValue.textContent = `${sizeSlider.value}px`;
+            Settings.set('insertSize', parseInt(sizeSlider.value));
+        });
+    }
+
     // Settings API keys
     const btnSaveKeys = document.getElementById('btn-save-keys');
     if (btnSaveKeys) {

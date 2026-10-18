@@ -148,16 +148,17 @@ const PluginUpdater = (function () {
                 if (remindVer === data.version && remindTime > Date.now()) return;
             }
 
-            if (isNewer || isManual) {
+            if (isManual) {
                 showUpdateModal(data, currentVer);
-                if (sStatus) {
-                    if (isNewer) {
-                        sStatus.textContent = `New v${data.version} available!`;
-                        sStatus.style.color = "#02a676";
-                    } else {
-                        sStatus.textContent = `You're on the latest version (v${currentVer}).`;
-                        sStatus.style.color = "#02a676";
-                    }
+            }
+
+            if (sStatus) {
+                if (isNewer) {
+                    sStatus.textContent = `New v${data.version} available! (Click Check for Updates)`;
+                    sStatus.style.color = "#02a676";
+                } else {
+                    sStatus.textContent = `You're on the latest version (v${currentVer}).`;
+                    sStatus.style.color = "#02a676";
                 }
             }
         } catch (err) {

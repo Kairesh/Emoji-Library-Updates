@@ -9,6 +9,7 @@ const PluginUpdater = (function () {
     const cp = (typeof window !== "undefined" && window.require) ? window.require('child_process') : (typeof require !== "undefined" ? require('child_process') : null);
 
     const MANIFEST_URLS = [
+        "https://cdn.jsdelivr.net/gh/Kairesh/Emoji-Library-Updates@0ebafca7/version.json",
         "https://raw.githubusercontent.com/Kairesh/Emoji-Library-Updates/main/version.json",
         "https://cdn.jsdelivr.net/gh/Kairesh/Emoji-Library-Updates@main/version.json"
     ];

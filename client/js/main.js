@@ -1047,6 +1047,12 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    // Update version badge dynamically
+    const verBadge = document.getElementById('settings-app-version-badge');
+    if (verBadge) {
+        verBadge.textContent = 'v' + PluginUpdater.version();
+    }
+
     // Initial render
     renderEmojis(true);
 

@@ -243,15 +243,19 @@ const PluginUpdater = (function () {
             extDir = decodeURIComponent(extDir);
             if (extDir.charAt(0) === '/' && extDir.charAt(2) === ':') extDir = extDir.slice(1);
 
-            const psExtract = `Expand-Archive -Path "${tempZip}" -DestinationPath "${extDir}" -Force`;
-            await new Promise((res) => {
+            const psExtract = `powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -Command "Expand-Archive -LiteralPath '${tempZip}' -DestinationPath '${extDir}' -Force"`;
+            await new Promise((resolve, reject) => {
                 if (cp) {
-                    cp.exec(`powershell -Command "${psExtract}"`, (err) => {
-                        if (err) console.warn("Extract error:", err);
-                        res();
+                    cp.exec(psExtract, (err, stdout, stderr) => {
+                        if (err) {
+                            console.error("Extraction error:", err, stderr);
+                            reject(new Error("Extraction failed: " + (stderr || err.message)));
+                        } else {
+                            resolve();
+                        }
                     });
                 } else {
-                    res();
+                    resolve();
                 }
             });
 

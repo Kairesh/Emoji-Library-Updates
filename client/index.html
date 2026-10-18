@@ -149,19 +149,25 @@
 
                 <!-- API Keys & Custom CDN Guide -->
                 <div class="setting-card">
-                    <div class="card-title">🔑 Zero API Keys Required (Free & Open Source)</div>
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <div class="card-title">🔑 Zero API Keys Required</div>
+                        <button type="button" id="btn-open-api-guide" class="guide-pill-btn">📖 Setup Guide</button>
+                    </div>
                     <p class="card-hint">
-                        All 200,000+ icons and emojis are <b>100% free open-source</b> and stream automatically via public open CDNs without needing any API keys or account. <b>No personal API key is used or needed.</b>
+                        All 200,000+ icons and emojis are <b>100% free open-source</b> and stream automatically via public open CDNs without needing any API keys. <b>No personal API key is required.</b>
                     </p>
                     <p class="card-hint" style="margin-top: 4px;">
-                        Optional Advanced: Only if you host your own custom private server, you can configure it below:
+                        Optional Advanced: Only configure below if you want higher custom rate limits or run a private server:
                     </p>
                     <div class="input-field-group">
                         <label>Custom Self-Hosted Icon API (Optional)</label>
                         <input type="text" id="setting-iconify-api" placeholder="Default: Public Open CDN" class="text-input-styled" />
                     </div>
                     <div class="input-field-group">
-                        <label>GitHub Personal Access Token (Optional)</label>
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <label>GitHub Personal Access Token (Optional)</label>
+                            <a href="#" id="link-get-gh-token" class="text-link" title="Open GitHub token creation page">Get free token ↗</a>
+                        </div>
                         <input type="password" id="setting-github-token" placeholder="Optional token for custom rate limits" class="text-input-styled" />
                     </div>
                     <button id="btn-save-keys" class="primary-btn" style="width: 100%; margin-top: 8px;">Save Settings</button>
@@ -279,11 +285,53 @@
         </div>
     </div>
 
+    <!-- API Key & Access Token Setup Guide Modal -->
+    <div id="modal-api-guide" class="modal-backdrop" style="display: none;">
+        <div class="modal-card" style="max-width: 440px;">
+            <div class="modal-header">
+                <h3>🔑 API & Token Setup Guide</h3>
+                <button id="btn-close-api-guide" class="drawer-close-btn">✕</button>
+            </div>
+            <div class="modal-body" style="font-size: 11px; line-height: 1.5; color: #ccc;">
+                <div style="background: rgba(2, 166, 118, 0.12); border: 1px solid rgba(2, 166, 118, 0.3); border-radius: 6px; padding: 10px; margin-bottom: 8px;">
+                    <b style="color: #02a676; font-size: 12px;">Good News: Zero API Keys Are Required!</b>
+                    <p style="margin-top: 4px; font-size: 11px; color: #ddd;">
+                        Emoji & Icon Studio is preconfigured to stream 200,000+ vector icons (Lucide, Phosphor, Tabler, Heroicons, etc.) and all Unicode emojis directly through public open CDNs. You do <b>not</b> need to create any account or paste any key to use 100% of the plugin features!
+                    </p>
+                </div>
+
+                <div style="margin-top: 6px;">
+                    <b style="color: #fff; font-size: 11.5px;">Optional: GitHub Personal Access Token</b>
+                    <p style="color: #aaa; margin: 4px 0 6px 0;">
+                        If you perform thousands of downloads in a short time, you can optionally provide a free GitHub token for higher rate limits:
+                    </p>
+                    <ol style="margin-left: 18px; color: #ddd; display: flex; flex-direction: column; gap: 4px;">
+                        <li>Log into your free account on <b>GitHub.com</b>.</li>
+                        <li>Click your profile picture → <b>Settings</b> → <b>Developer Settings</b>.</li>
+                        <li>Select <b>Personal Access Tokens</b> → <b>Tokens (classic)</b>.</li>
+                        <li>Click <b>Generate new token (classic)</b>.</li>
+                        <li>Give it any note (e.g. <i>Emoji Studio</i>) and click <b>Generate token</b> at the bottom. No extra checkboxes needed!</li>
+                        <li>Copy the token (starts with <code style="background: #222; padding: 1px 4px; border-radius: 3px;">ghp_...</code>) and paste it into the Settings field.</li>
+                    </ol>
+                </div>
+
+                <div style="margin-top: 10px;">
+                    <button type="button" id="btn-open-gh-browser" class="secondary-btn" style="width: 100%; border-color: #3b90f5; color: #4da3ff; padding: 7px;">
+                        🌐 Open GitHub Token Creation Page in Browser
+                    </button>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" id="btn-done-api-guide" class="primary-btn" style="min-width: 80px;">Done</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Software Update Modal Popup -->
     <div id="update-modal" class="modal-backdrop" style="display: none;">
         <div class="modal-card update-card">
             <div class="modal-header">
-                <h3>Update Available!</h3>
+                <h3 id="modal-update-title">Update Available!</h3>
                 <button id="btn-modal-update-close" class="drawer-close-btn">✕</button>
             </div>
             <div class="modal-body">

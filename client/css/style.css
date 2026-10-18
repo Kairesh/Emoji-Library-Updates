@@ -620,6 +620,32 @@ body {
     text-overflow: ellipsis;
     white-space: nowrap;
 }
+.guide-pill-btn {
+    background: rgba(59, 144, 245, 0.15);
+    border: 1px solid rgba(59, 144, 245, 0.4);
+    color: #4da3ff;
+    padding: 2px 7px;
+    border-radius: 4px;
+    font-size: 10px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+.guide-pill-btn:hover {
+    background: #3b90f5;
+    color: #ffffff;
+}
+
+.text-link {
+    color: #4da3ff;
+    font-size: 10px;
+    text-decoration: none;
+    cursor: pointer;
+}
+.text-link:hover {
+    text-decoration: underline;
+}
+
 .icon-btn-storage {
     background-color: var(--bg-panel);
     border: 1px solid var(--border-color);

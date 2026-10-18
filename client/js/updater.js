@@ -129,6 +129,7 @@ const PluginUpdater = (function () {
         const modal = document.getElementById('update-modal');
         if (!modal) return;
 
+        const modalTitle = document.getElementById('modal-update-title');
         const tag = document.getElementById('modal-update-version');
         const curTag = document.getElementById('modal-update-current');
         const notes = document.getElementById('modal-update-notes');
@@ -136,7 +137,20 @@ const PluginUpdater = (function () {
         const btnLater = document.getElementById('btn-modal-update-later');
         const btnSkip = document.getElementById('btn-modal-update-skip');
         const btnClose = document.getElementById('btn-modal-update-close');
+        const progRow = document.getElementById('update-progress-row');
+        const progBar = document.getElementById('update-progress-bar');
+        const progTxt = document.getElementById('update-progress-text');
 
+        // Reset previous progress/error states
+        if (progRow) progRow.style.display = 'none';
+        if (progBar) progBar.style.width = '0%';
+        if (progTxt) progTxt.textContent = '';
+
+        const isNewer = compareVersions(data.version, currentVer) > 0;
+
+        if (modalTitle) {
+            modalTitle.textContent = isNewer ? "Update Available!" : "You're Up to Date! 🎉";
+        }
         if (tag) tag.textContent = `v${data.version}`;
         if (curTag) curTag.textContent = `Installed: v${currentVer || getInstalledVersion()}`;
         if (notes) notes.textContent = data.releaseNotes || "Performance optimizations and new icon libraries.";
@@ -148,6 +162,7 @@ const PluginUpdater = (function () {
         }
 
         if (btnLater) {
+            btnLater.style.display = isNewer ? 'block' : 'none';
             btnLater.onclick = () => {
                 Settings.set('remindLaterVersion', data.version);
                 Settings.set('remindLaterTime', Date.now() + 24 * 60 * 60 * 1000);
@@ -156,6 +171,7 @@ const PluginUpdater = (function () {
         }
 
         if (btnSkip) {
+            btnSkip.style.display = isNewer ? 'block' : 'none';
             btnSkip.onclick = () => {
                 Settings.set('skipUpdateVersion', data.version);
                 modal.style.display = 'none';
@@ -163,7 +179,6 @@ const PluginUpdater = (function () {
         }
 
         if (btnInstall) {
-            const isNewer = compareVersions(data.version, currentVer) > 0;
             btnInstall.textContent = isNewer ? "Update Now" : "Reinstall v" + data.version;
             btnInstall.disabled = false;
             btnInstall.onclick = async () => {

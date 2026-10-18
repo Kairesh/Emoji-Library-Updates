@@ -917,6 +917,39 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    // API Guide Modal Wiring
+    const modalApiGuide = document.getElementById('modal-api-guide');
+    const btnOpenApiGuide = document.getElementById('btn-open-api-guide');
+    const btnCloseApiGuide = document.getElementById('btn-close-api-guide');
+    const btnDoneApiGuide = document.getElementById('btn-done-api-guide');
+    const linkGetGhToken = document.getElementById('link-get-gh-token');
+    const btnOpenGhBrowser = document.getElementById('btn-open-gh-browser');
+
+    if (btnOpenApiGuide && modalApiGuide) {
+        btnOpenApiGuide.addEventListener('click', (e) => {
+            e.preventDefault();
+            modalApiGuide.style.display = 'flex';
+        });
+    }
+    if (btnCloseApiGuide && modalApiGuide) {
+        btnCloseApiGuide.onclick = () => { modalApiGuide.style.display = 'none'; };
+    }
+    if (btnDoneApiGuide && modalApiGuide) {
+        btnDoneApiGuide.onclick = () => { modalApiGuide.style.display = 'none'; };
+    }
+
+    function openGhTokenPage(e) {
+        if (e) e.preventDefault();
+        const ghUrl = "https://github.com/settings/tokens";
+        if (cp) {
+            cp.exec(`start "" "${ghUrl}"`);
+        } else {
+            window.open(ghUrl, "_blank");
+        }
+    }
+    if (linkGetGhToken) linkGetGhToken.addEventListener('click', openGhTokenPage);
+    if (btnOpenGhBrowser) btnOpenGhBrowser.addEventListener('click', openGhTokenPage);
+
     // Settings API keys
     const btnSaveKeys = document.getElementById('btn-save-keys');
     if (btnSaveKeys) {

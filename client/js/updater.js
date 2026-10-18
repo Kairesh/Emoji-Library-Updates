@@ -3,11 +3,28 @@
  * Powered by GitHub repository releases & version.json
  */
 const PluginUpdater = (function () {
-    const CURRENT_VERSION = "1.9.9"; // Tested against remote v2.0.0 to trigger update popup
-    const MANIFEST_URLS = [
-        "https://raw.githubusercontent.com/Kairesh/Emoji-Library-Updates/main/version.json",
-        "https://cdn.jsdelivr.net/gh/Kairesh/Emoji-Library-Updates@main/version.json"
-    ];
+    function getInstalledVersion() {
+        try {
+            // First check if user completed in-app update
+            const stored = localStorage.getItem('kairesh_installed_version');
+            if (stored) return stored;
+
+            let extDir = csInterface.getSystemPath(SystemPath.EXTENSION);
+            if (extDir.startsWith("file://")) extDir = extDir.slice(7);
+            extDir = decodeURIComponent(extDir);
+            if (extDir.charAt(0) === '/' && extDir.charAt(2) === ':') extDir = extDir.slice(1);
+
+            const manifestPath = path.join(extDir, "CSXS", "manifest.xml");
+            if (fs.existsSync(manifestPath)) {
+                const xml = fs.readFileSync(manifestPath, 'utf8');
+                const m = xml.match(/ExtensionBundleVersion="([^"]+)"/);
+                if (m && m[1]) return m[1];
+            }
+        } catch (e) {
+            // ignore
+        }
+        return "1.9.9"; // Fallback to prompt update
+    }
 
     function compareVersions(v1, v2) {
         const parts1 = (v1 || "0.0.0").split('.').map(p => parseInt(p, 10) || 0);
@@ -42,6 +59,7 @@ const PluginUpdater = (function () {
         const btnCheck = document.getElementById('btn-check-updates');
         const modal = document.getElementById('update-modal');
 
+        const currentVer = getInstalledVersion();
         if (isManual && btnCheck) {
             btnCheck.disabled = true;
             btnCheck.innerHTML = '<span>Checking...</span>';
@@ -57,7 +75,7 @@ const PluginUpdater = (function () {
                 return;
             }
 
-            const isNewer = compareVersions(data.version, CURRENT_VERSION) > 0;
+            const isNewer = compareVersions(data.version, currentVer) > 0;
 
             if (!isManual) {
                 // Check if skipped
@@ -71,14 +89,14 @@ const PluginUpdater = (function () {
             }
 
             if (isNewer) {
-                showUpdateModal(data);
+                showUpdateModal(data, currentVer);
                 if (sStatus) {
                     sStatus.textContent = `New v${data.version} available!`;
                     sStatus.style.color = "#02a676";
                 }
             } else {
                 if (isManual && sStatus) {
-                    sStatus.textContent = `You're on the latest version (v${CURRENT_VERSION}).`;
+                    sStatus.textContent = `You're on the latest version (v${currentVer}).`;
                     sStatus.style.color = "#02a676";
                 }
             }
@@ -96,7 +114,7 @@ const PluginUpdater = (function () {
         }
     }
 
-    function showUpdateModal(data) {
+    function showUpdateModal(data, currentVer) {
         const modal = document.getElementById('update-modal');
         if (!modal) return;
 
@@ -109,7 +127,7 @@ const PluginUpdater = (function () {
         const btnClose = document.getElementById('btn-modal-update-close');
 
         if (tag) tag.textContent = `v${data.version}`;
-        if (curTag) curTag.textContent = `v${CURRENT_VERSION}`;
+        if (curTag) curTag.textContent = `Installed: v${currentVer || getInstalledVersion()}`;
         if (notes) notes.textContent = data.releaseNotes || "Performance optimizations and new icon libraries.";
 
         modal.style.display = 'flex';
@@ -173,7 +191,7 @@ const PluginUpdater = (function () {
                 extDir = decodeURIComponent(extDir);
                 if (extDir.charAt(0) === '/' && extDir.charAt(2) === ':') extDir = extDir.slice(1);
 
-                // Use AdmZip or PowerShell to unzip into extension dir
+                // Use PowerShell to unzip into extension dir
                 const psExtract = `Expand-Archive -Path "${tempZip}" -DestinationPath "${extDir}" -Force`;
                 const { exec } = require('child_process');
                 await new Promise((res, rej) => {
@@ -184,6 +202,9 @@ const PluginUpdater = (function () {
                         res();
                     });
                 });
+
+                // Save installed version permanently
+                localStorage.setItem('kairesh_installed_version', data.version);
 
                 updateStatus(100, "Update complete! Reloading panel...");
                 setTimeout(() => {

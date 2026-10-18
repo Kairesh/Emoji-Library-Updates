@@ -402,10 +402,16 @@ const IconEngine = (function () {
                     if (color) {
                         body = body.replace(/currentColor/g, color);
                     }
+                    var pad = 0;
                     if (strokeWidth && strokeWidth !== 2) {
                         body = body.replace(/stroke-width="[^"]*"/g, `stroke-width="${strokeWidth}"`);
+                        if (strokeWidth > 2) pad = (strokeWidth - 2) / 2;
                     }
-                    results[fullKey] = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${w} ${h}" width="100%" height="100%">${body}</svg>`;
+                    var minX = -pad;
+                    var minY = -pad;
+                    var newW = w + (pad * 2);
+                    var newH = h + (pad * 2);
+                    results[fullKey] = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${minX} ${minY} ${newW} ${newH}" overflow="visible" width="100%" height="100%">${body}</svg>`;
                 }
             });
         });
@@ -440,10 +446,16 @@ const IconEngine = (function () {
             if (color) {
                 body = body.replace(/currentColor/g, color);
             }
+            var pad = 0;
             if (strokeWidth && strokeWidth !== 2) {
                 body = body.replace(/stroke-width="[^"]*"/g, `stroke-width="${strokeWidth}"`);
+                if (strokeWidth > 2) pad = (strokeWidth - 2) / 2;
             }
-            return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${w} ${h}" width="100%" height="100%">${body}</svg>`;
+            var minX = -pad;
+            var minY = -pad;
+            var newW = w + (pad * 2);
+            var newH = h + (pad * 2);
+            return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${minX} ${minY} ${newW} ${newH}" overflow="visible" width="100%" height="100%">${body}</svg>`;
         }
 
         const svgUrl = buildSvgUrl(iconFullName, options);
@@ -462,6 +474,9 @@ const IconEngine = (function () {
                 svgText = svgText.replace(/stroke-width="[^"]*"/g, `stroke-width="${options.strokeWidth}"`);
                 if (!svgText.includes('stroke-width=')) {
                     svgText = svgText.replace(/<svg\b([^>]*)>/, `<svg$1 stroke-width="${options.strokeWidth}">`);
+                }
+                if (options.strokeWidth > 2) {
+                    svgText = svgText.replace(/<svg\b([^>]*)>/, `<svg$1 overflow="visible">`);
                 }
             }
 

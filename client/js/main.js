@@ -6,8 +6,14 @@ const cp = (typeof window !== "undefined" && window.require) ? window.require('c
 
 const csInterface = new CSInterface();
 
-// Active Host Application detection
+// Active Host Application detection (Immediate synchronous check)
 let hostApp = 'UNKNOWN';
+try {
+    if (typeof csInterface !== "undefined" && typeof csInterface.getHostEnvironment === 'function') {
+        const env = csInterface.getHostEnvironment();
+        if (env && env.appId) hostApp = env.appId;
+    }
+} catch (e) {}
 
 function getActiveProjectDir() {
     return new Promise((resolve) => {
@@ -30,11 +36,11 @@ async function resolveAssetsDir() {
     try {
         const projectDir = await getActiveProjectDir();
         if (projectDir && path) {
-            targetDir = path.join(projectDir, "Emoji & Icon Assets");
+            targetDir = path.join(projectDir, "Icons");
         } else if (os && path) {
-            targetDir = path.join(os.homedir(), "Documents", "Emoji & Icon Studio Assets");
+            targetDir = path.join(os.homedir(), "Documents", "Icons");
         } else {
-            targetDir = "C:\\Emoji & Icon Studio Assets";
+            targetDir = "C:\\Icons";
         }
 
         if (fs && !fs.existsSync(targetDir)) {
@@ -72,8 +78,39 @@ async function resolveAssetsDir() {
     return targetDir;
 }
 
+// Recents Management
+const RECENT_STORAGE_KEY = 'recent_studio_assets';
+function getRecents() {
+    try {
+        const data = localStorage.getItem(RECENT_STORAGE_KEY);
+        return data ? JSON.parse(data) : [];
+    } catch (e) {
+        return [];
+    }
+}
+
+function addToRecent(item) {
+    if (!item) return;
+    try {
+        let recents = getRecents();
+        const key = item.id || item.iconFullName || item.fullPath || (item.type === 'emoji' ? item.emojiChar : item.name);
+        recents = recents.filter(r => (r.id || r.iconFullName || r.fullPath || (r.type === 'emoji' ? r.emojiChar : r.name)) !== key);
+        recents.unshift(Object.assign({ timestamp: Date.now() }, item));
+        if (recents.length > 80) recents = recents.slice(0, 80);
+        localStorage.setItem(RECENT_STORAGE_KEY, JSON.stringify(recents));
+    } catch (e) {}
+}
+
+function removeFromRecent(itemKey) {
+    try {
+        let recents = getRecents();
+        recents = recents.filter(r => (r.id || r.iconFullName || r.fullPath || (r.type === 'emoji' ? r.emojiChar : r.name)) !== itemKey);
+        localStorage.setItem(RECENT_STORAGE_KEY, JSON.stringify(recents));
+    } catch (e) {}
+}
+
 // State
-let currentTab = 'emojis'; // 'emojis', 'icons', 'folders', 'playlists'
+let currentTab = 'emojis'; // 'recent', 'emojis', 'icons', 'folders'
 let currentStyle = Settings.get('style') || 'google';
 let currentTone = '';
 let currentMode = Settings.get('insertMode') || 'shape';
@@ -143,15 +180,21 @@ const EMOJI_CATEGORIES = [
     { id: "Flags", label: "Flags", icon: "🇺🇸", desc: "Country & regional flags" }
 ];
 
-// Dynamic Category Bar & Popover Engine
+// Dynamic Category Bar Engine
 function updateCategoryBarAndPopover() {
     const pillsBar = document.getElementById('category-pills-bar');
-    const popoverList = document.getElementById('popover-category-list');
     const filterLabel = document.getElementById('current-filter-label');
-    if (!pillsBar || !popoverList) return;
+    if (!pillsBar) return;
 
     let categories = [];
-    if (currentTab === 'emojis') {
+    if (currentTab === 'recent') {
+        categories = [
+            { id: "all", label: "All Recents", icon: "🕒", desc: "All recently inserted assets & pasted images" },
+            { id: "emojis", label: "Recent Emojis", icon: "😀", desc: "Recently inserted emojis" },
+            { id: "icons", label: "Recent Icons", icon: "✨", desc: "Recently inserted vector icons" },
+            { id: "clipboard", label: "Pasted Images", icon: "📋", desc: "Images pasted from clipboard" }
+        ];
+    } else if (currentTab === 'emojis') {
         categories = EMOJI_CATEGORIES;
     } else if (currentTab === 'icons') {
         const libSelect = document.getElementById('icon-library-select');
@@ -160,20 +203,10 @@ function updateCategoryBarAndPopover() {
     } else if (currentTab === 'folders') {
         categories = [
             { id: "all", label: "All Local Files", icon: "📁", desc: "All icons & images in linked folders" },
+            { id: "custom", label: "Custom Playlists", icon: "📋", desc: "Your custom saved collections & playlists" },
             { id: "svg", label: "Vectors (SVG)", icon: "📐", desc: "Scalable vector graphics" },
             { id: "png", label: "Images (PNG/JPG)", icon: "🖼️", desc: "Raster graphics & photos" }
         ];
-    } else if (currentTab === 'playlists') {
-        const playlists = AssetManager.getPlaylists();
-        categories = playlists.map(pl => ({
-            id: pl.id,
-            label: pl.name,
-            icon: pl.id === 'favs' ? '★' : '📋',
-            desc: `${pl.items ? pl.items.length : 0} items saved`
-        }));
-        if (categories.length === 0) {
-            categories = [{ id: "favs", label: "Favorites", icon: "★", desc: "Your starred assets" }];
-        }
     }
 
     if (!categories.some(c => c.id === currentCategory)) {
@@ -193,56 +226,43 @@ function updateCategoryBarAndPopover() {
         pill.dataset.cat = cat.id;
         pill.innerHTML = `<span>${cat.icon ? cat.icon + ' ' : ''}${cat.label}</span>`;
         pill.addEventListener('click', () => {
-            selectCategory(cat.id, cat.label);
+            selectCategory(cat.id, cat.label, pill);
         });
         pillsBar.appendChild(pill);
     });
 
-    // Populate Floating Popover
-    popoverList.innerHTML = '';
-    categories.forEach(cat => {
-        const item = document.createElement('div');
-        const isActive = cat.id === currentCategory;
-        item.className = `popover-item ${isActive ? 'active' : ''}`;
-        item.dataset.cat = cat.id;
-        item.innerHTML = `
-            <span class="popover-icon">${cat.icon || '•'}</span>
-            <div class="popover-text">
-                <div class="popover-title">${cat.label}</div>
-                <div class="popover-desc">${cat.desc || ''}</div>
-            </div>
-            ${isActive ? '<span class="popover-check">✓</span>' : ''}
-        `;
-        item.addEventListener('click', () => {
-            selectCategory(cat.id, cat.label);
-            closeCategoryPopover();
-        });
-        popoverList.appendChild(item);
-    });
+    syncFolderToolbarRows();
 }
 
-function selectCategory(catId, catLabel) {
+function syncFolderToolbarRows() {
+    const folderControls = document.getElementById('folder-controls-row');
+    const playlistControls = document.getElementById('playlist-controls-row');
+    if (currentTab === 'folders') {
+        if (currentCategory === 'custom') {
+            if (folderControls) folderControls.style.display = 'none';
+            if (playlistControls) playlistControls.style.display = 'flex';
+        } else {
+            if (folderControls) folderControls.style.display = 'flex';
+            if (playlistControls) playlistControls.style.display = 'none';
+        }
+    }
+}
+
+function selectCategory(catId, catLabel, clickedPill) {
     currentCategory = catId;
     const filterLabel = document.getElementById('current-filter-label');
     if (filterLabel && catLabel) {
         filterLabel.textContent = catLabel.replace(/^[^\w\s]+\s*/, '');
     }
     document.querySelectorAll('#category-pills-bar .platform-pill').forEach(p => {
-        p.classList.toggle('active', p.dataset.cat === catId);
-    });
-    document.querySelectorAll('#popover-category-list .popover-item').forEach(it => {
-        const isActive = (it.dataset.cat === catId);
-        it.classList.toggle('active', isActive);
-        let check = it.querySelector('.popover-check');
-        if (isActive && !check) {
-            const span = document.createElement('span');
-            span.className = 'popover-check';
-            span.textContent = '✓';
-            it.appendChild(span);
-        } else if (!isActive && check) {
-            check.remove();
+        const isTarget = (p.dataset.cat === catId);
+        p.classList.toggle('active', isTarget);
+        if (isTarget) {
+            p.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
         }
     });
+
+    syncFolderToolbarRows();
     renderCurrentTab();
 }
 
@@ -259,7 +279,6 @@ function initTabs() {
     const emojiSub = document.getElementById('emoji-subtoolbar');
     const iconControls = document.getElementById('icon-controls-inline');
     const folderSub = document.getElementById('folder-subtoolbar');
-    const playlistSub = document.getElementById('playlist-subtoolbar');
 
     tabButtons.forEach(btn => {
         btn.addEventListener('click', () => {
@@ -271,7 +290,6 @@ function initTabs() {
             if (emojiSub) emojiSub.style.display = (currentTab === 'emojis') ? 'flex' : 'none';
             if (iconControls) iconControls.style.display = (currentTab === 'icons') ? 'flex' : 'none';
             if (folderSub) folderSub.style.display = (currentTab === 'folders') ? 'flex' : 'none';
-            if (playlistSub) playlistSub.style.display = (currentTab === 'playlists') ? 'flex' : 'none';
 
             closeCategoryPopover();
             updateCategoryBarAndPopover();
@@ -279,7 +297,7 @@ function initTabs() {
         });
     });
 
-    // Wire Popover Toggle
+    // Wire Popover Toggle if element exists
     const btnPopover = document.getElementById('btn-category-popover');
     const popoverEl = document.getElementById('category-popover');
     if (btnPopover && popoverEl) {
@@ -305,14 +323,18 @@ function initTabs() {
 }
 
 function renderCurrentTab() {
-    if (currentTab === 'emojis') {
-        renderEmojis();
+    if (currentTab === 'recent') {
+        renderRecents();
+    } else if (currentTab === 'emojis') {
+        renderEmojis(true);
     } else if (currentTab === 'icons') {
-        renderIcons();
+        renderIcons(true);
     } else if (currentTab === 'folders') {
-        renderFolders();
-    } else if (currentTab === 'playlists') {
-        renderPlaylists();
+        if (currentCategory === 'custom') {
+            renderPlaylists();
+        } else {
+            renderFolders();
+        }
     }
 }
 
@@ -755,6 +777,241 @@ function renderPlaylists() {
 }
 
 // ----------------------------------------------------
+// TAB 5: RECENTS (Recently used emojis, icons & pasted images)
+// ----------------------------------------------------
+function renderRecents() {
+    assetGrid.innerHTML = '';
+    noResults.style.display = 'none';
+
+    let recents = getRecents();
+
+    // Filter by currentCategory: 'all', 'emojis', 'icons', 'clipboard'
+    if (currentCategory === 'emojis') {
+        recents = recents.filter(r => r.type === 'emoji');
+    } else if (currentCategory === 'icons') {
+        recents = recents.filter(r => r.type === 'icon');
+    } else if (currentCategory === 'clipboard') {
+        recents = recents.filter(r => r.type === 'clipboard');
+    }
+
+    if (searchQuery) {
+        const q = searchQuery.toLowerCase();
+        recents = recents.filter(r => (r.name && r.name.toLowerCase().includes(q)) || (r.emojiChar && r.emojiChar.includes(q)));
+    }
+
+    if (recents.length === 0) {
+        assetGrid.innerHTML = `
+            <div style="grid-column: 1 / -1; text-align: center; padding: 48px 14px; color: var(--text-muted);">
+                <div style="font-size: 38px; margin-bottom: 10px;">🕒</div>
+                <div style="font-size: 13.5px; font-weight: 600; color: var(--text-primary); margin-bottom: 6px;">No Recent Assets Found</div>
+                <div style="font-size: 11px; margin-bottom: 16px; color: var(--text-secondary); max-width: 260px; margin-left: auto; margin-right: auto;">
+                    Any emoji, icon, or pasted image you use will automatically appear here for instant one-click access!
+                </div>
+            </div>
+        `;
+        updateStatus("No recent assets.");
+        return;
+    }
+
+    recents.forEach(item => {
+        const card = document.createElement('div');
+        card.className = 'asset-card';
+        card.title = item.name || 'Recent Item';
+
+        if (item.type === 'emoji') {
+            const img = document.createElement('img');
+            img.src = getEmojiDownloadUrl(item.emojiChar, item.style || currentStyle, 'png');
+            img.onerror = function() {
+                const parent = this.parentElement;
+                if (parent) {
+                    parent.innerHTML = '';
+                    const span = document.createElement('span');
+                    span.className = 'card-emoji-text';
+                    span.textContent = item.emojiChar;
+                    parent.appendChild(span);
+                }
+            };
+            card.appendChild(img);
+        } else if (item.type === 'icon') {
+            const iconContainer = document.createElement('div');
+            iconContainer.style.width = '28px';
+            iconContainer.style.height = '28px';
+            card.appendChild(iconContainer);
+            IconEngine.fetchSvgContent(item.iconFullName, { color: item.color || '#fff', strokeWidth: item.strokeWidth || 2 }).then(svg => {
+                iconContainer.innerHTML = svg;
+            }).catch(() => {});
+        } else if (item.type === 'local' || item.type === 'clipboard') {
+            const img = document.createElement('img');
+            img.src = `file://${item.fullPath.replace(/\\/g, '/')}`;
+            card.appendChild(img);
+            if (item.ext) {
+                const badge = document.createElement('span');
+                badge.className = 'asset-badge';
+                badge.textContent = item.type === 'clipboard' ? 'PASTE' : item.ext.replace('.', '');
+                card.appendChild(badge);
+            }
+        }
+
+        // Delete from recents button
+        const delBtn = document.createElement('button');
+        delBtn.className = 'asset-delete-btn';
+        delBtn.title = `Remove from recents`;
+        delBtn.textContent = '✕';
+        delBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const key = item.id || item.iconFullName || item.fullPath || (item.type === 'emoji' ? item.emojiChar : item.name);
+            removeFromRecent(key);
+            renderRecents();
+        });
+        card.appendChild(delBtn);
+
+        card.addEventListener('click', () => {
+            openCustomizer(item);
+        });
+
+        assetGrid.appendChild(card);
+    });
+
+    updateStatus(`Showing ${recents.length} recent item${recents.length === 1 ? '' : 's'}`);
+}
+
+// ----------------------------------------------------
+// LOSSLESS CLIPBOARD IMAGE PASTE (MediaFetch Master)
+// ----------------------------------------------------
+async function pasteImageFromClipboard() {
+    const btn = document.getElementById('btn-clipboard-paste');
+    if (btn) {
+        btn.classList.add('loading');
+        btn.style.opacity = '0.6';
+        btn.style.pointerEvents = 'none';
+    }
+
+    updateStatus("Reading image from clipboard...", "info");
+
+    try {
+        const assetsDir = await resolveAssetsDir();
+        const nowStr = Date.now();
+        const outImg = path ? path.join(assetsDir, `Clipboard_${nowStr}.png`) : `C:\\Icons\\Clipboard_${nowStr}.png`;
+        const escapedPath = outImg.replace(/'/g, "''");
+
+        const psScript = `
+Add-Type -AssemblyName System.Windows.Forms;
+Add-Type -AssemblyName System.Drawing;
+$data = [System.Windows.Forms.Clipboard]::GetDataObject();
+if ($data -eq $null) {
+    Write-Output 'EMPTY';
+    exit 0;
+}
+$saved = $false;
+if ($data.GetDataPresent('PNG')) {
+    $stream = $data.GetData('PNG');
+    if ($stream -is [System.IO.MemoryStream]) {
+        [System.IO.File]::WriteAllBytes('${escapedPath}', $stream.ToArray());
+        Write-Output 'SAVED_IMAGE:${escapedPath}';
+        $saved = $true;
+    }
+}
+if (-not $saved -and [System.Windows.Forms.Clipboard]::ContainsImage()) {
+    $img = [System.Windows.Forms.Clipboard]::GetImage();
+    if ($img -ne $null) {
+        $img.Save('${escapedPath}', [System.Drawing.Imaging.ImageFormat]::Png);
+        Write-Output 'SAVED_IMAGE:${escapedPath}';
+        $saved = $true;
+    }
+}
+if (-not $saved -and [System.Windows.Forms.Clipboard]::ContainsFileDropList()) {
+    $f = [System.Windows.Forms.Clipboard]::GetFileDropList();
+    Write-Output ('FILES:' + ($f -join '|'));
+}
+`;
+
+        let savedImagePath = null;
+
+        if (cp && os && os.platform() === 'win32') {
+            await new Promise((resolve) => {
+                cp.execFile('powershell.exe', ['-STA', '-NoProfile', '-Command', psScript], {
+                    windowsHide: true,
+                    timeout: 7000
+                }, (err, stdout) => {
+                    const out = (stdout || '').trim();
+                    if (out.includes('SAVED_IMAGE:')) {
+                        const line = out.split('\n').find(l => l.includes('SAVED_IMAGE:')) || '';
+                        const fp = line.substring(line.indexOf('SAVED_IMAGE:') + 'SAVED_IMAGE:'.length).trim();
+                        if (fs && fs.existsSync(fp) && fs.statSync(fp).size > 100) {
+                            savedImagePath = fp;
+                        }
+                    } else if (fs && fs.existsSync(outImg) && fs.statSync(outImg).size > 100) {
+                        savedImagePath = outImg;
+                    } else if (out.includes('FILES:')) {
+                        const files = out.substring(out.indexOf('FILES:') + 'FILES:'.length).trim().split('|');
+                        for (const f of files) {
+                            const ext = path ? path.extname(f).toLowerCase() : '';
+                            if (['.png', '.jpg', '.jpeg', '.webp', '.svg', '.gif'].includes(ext) && fs && fs.existsSync(f)) {
+                                savedImagePath = f;
+                                break;
+                            }
+                        }
+                    }
+                    resolve();
+                });
+            });
+        }
+
+        // Browser clipboard API fallback
+        if (!savedImagePath && navigator.clipboard && navigator.clipboard.read) {
+            try {
+                const items = await navigator.clipboard.read();
+                for (const it of items) {
+                    for (const type of it.types) {
+                        if (type.startsWith('image/')) {
+                            const blob = await it.getType(type);
+                            const buffer = Buffer.from(await blob.arrayBuffer());
+                            if (fs) {
+                                fs.writeFileSync(outImg, buffer);
+                                if (fs.existsSync(outImg) && fs.statSync(outImg).size > 100) {
+                                    savedImagePath = outImg;
+                                }
+                            }
+                            break;
+                        }
+                    }
+                    if (savedImagePath) break;
+                }
+            } catch (eBrowserClip) {}
+        }
+
+        if (savedImagePath && fs && fs.existsSync(savedImagePath)) {
+            const fileName = path ? path.basename(savedImagePath) : "Pasted Image";
+            triggerHostImport(savedImagePath, fileName, 512);
+
+            addToRecent({
+                type: 'clipboard',
+                name: fileName,
+                fullPath: savedImagePath,
+                ext: path ? path.extname(savedImagePath) : '.png'
+            });
+
+            if (currentTab === 'recent') {
+                renderRecents();
+            }
+            updateStatus("Clipboard image inserted into Icons bin & timeline!", "success");
+        } else {
+            updateStatus("No image found on clipboard. Copy an image first!", "warning");
+            alert("No image found on clipboard.\n\nPlease copy an image or take a screenshot (e.g. Win+Shift+S), then click IMG PASTE.");
+        }
+    } catch (pasteErr) {
+        console.error("Paste error:", pasteErr);
+        updateStatus(`Paste error: ${pasteErr.message}`, "error");
+    } finally {
+        if (btn) {
+            btn.classList.remove('loading');
+            btn.style.opacity = '1';
+            btn.style.pointerEvents = 'auto';
+        }
+    }
+}
+
+// ----------------------------------------------------
 // LIVE CUSTOMIZER & PREVIEW MODAL
 // ----------------------------------------------------
 const customizerModal = document.getElementById('customizer-modal');
@@ -781,6 +1038,18 @@ async function openCustomizer(item) {
             opt.value = pl.id;
             opt.textContent = pl.name;
             plSelect.appendChild(opt);
+        });
+    }
+
+    const modalFolderSelect = document.getElementById('modal-folder-select');
+    if (modalFolderSelect) {
+        modalFolderSelect.innerHTML = '<option value="">-- Choose Local Folder --</option>';
+        AssetManager.getLinkedFolders().forEach(f => {
+            const opt = document.createElement('option');
+            opt.value = f;
+            opt.textContent = path ? path.basename(f) : f;
+            opt.title = f;
+            modalFolderSelect.appendChild(opt);
         });
     }
 
@@ -907,10 +1176,20 @@ async function insertActiveCustomizerItem() {
 
     updateStatus(`Preparing ${item.name}...`, 'info');
 
+    // Automatically record into Recents
+    addToRecent(Object.assign({}, item, {
+        color: color,
+        strokeWidth: strokeWidth,
+        size: size
+    }));
+    if (currentTab === 'recent') {
+        renderRecents();
+    }
+
     const assetsDir = await resolveAssetsDir();
 
     try {
-        if (item.type === 'local') {
+        if (item.type === 'local' || item.type === 'clipboard') {
             triggerHostImport(item.fullPath, item.name, size);
             return;
         }
@@ -1107,14 +1386,32 @@ document.addEventListener('DOMContentLoaded', () => {
     // Populate Linked Folders dropdown
     const folderSelect = document.getElementById('linked-folder-select');
     function updateFolderDropdown() {
-        if (!folderSelect) return;
-        folderSelect.innerHTML = '<option value="">-- Select Linked Folder --</option>';
-        AssetManager.getLinkedFolders().forEach(f => {
-            const opt = document.createElement('option');
-            opt.value = f;
-            opt.textContent = (path ? path.basename(f) : f) + ` (${f})`;
-            folderSelect.appendChild(opt);
-        });
+        if (folderSelect) {
+            const currentVal = folderSelect.value;
+            folderSelect.innerHTML = '<option value="">-- Select Linked Folder --</option>';
+            AssetManager.getLinkedFolders().forEach(f => {
+                const opt = document.createElement('option');
+                opt.value = f;
+                opt.textContent = path ? path.basename(f) : f;
+                opt.title = f;
+                folderSelect.appendChild(opt);
+            });
+            if (currentVal) folderSelect.value = currentVal;
+        }
+
+        const modalFolderSelect = document.getElementById('modal-folder-select');
+        if (modalFolderSelect) {
+            const currentModalVal = modalFolderSelect.value;
+            modalFolderSelect.innerHTML = '<option value="">-- Choose Local Folder --</option>';
+            AssetManager.getLinkedFolders().forEach(f => {
+                const opt = document.createElement('option');
+                opt.value = f;
+                opt.textContent = path ? path.basename(f) : f;
+                opt.title = f;
+                modalFolderSelect.appendChild(opt);
+            });
+            if (currentModalVal) modalFolderSelect.value = currentModalVal;
+        }
     }
     updateFolderDropdown();
 
@@ -1500,6 +1797,88 @@ document.addEventListener('DOMContentLoaded', () => {
             updatePlaylistDropdown();
             alert("Added to playlist!");
         };
+    }
+
+    // Save to Local Folder from Customizer
+    const btnModalSaveFolder = document.getElementById('btn-modal-save-folder');
+    if (btnModalSaveFolder) {
+        btnModalSaveFolder.onclick = async () => {
+            if (!activeCustomizerItem) return;
+            const modalFolderSelect = document.getElementById('modal-folder-select');
+            const targetFolder = modalFolderSelect ? modalFolderSelect.value : null;
+            if (!targetFolder || !fs || !fs.existsSync(targetFolder)) {
+                alert("Please select a linked folder first!");
+                return;
+            }
+
+            try {
+                const item = activeCustomizerItem;
+                const color = (modalColorHex && modalColorHex.value) || '#ffffff';
+                const strokeInput = document.getElementById('modal-stroke-input');
+                const strokeWidth = (strokeInput && parseFloat(strokeInput.value)) || 2;
+                const cleanName = (item.name || 'asset').replace(/[^a-zA-Z0-9_-]/g, '_');
+
+                if (item.type === 'icon') {
+                    const svgText = await IconEngine.fetchSvgContent(item.iconFullName, {
+                        color: color,
+                        strokeWidth: strokeWidth
+                    });
+                    const destFile = path.join(targetFolder, `${cleanName}.svg`);
+                    fs.writeFileSync(destFile, svgText, 'utf8');
+                    alert(`Saved vector icon "${cleanName}.svg" to ${path.basename(targetFolder)}!`);
+                } else if (item.type === 'emoji') {
+                    const dlUrl = getEmojiDownloadUrl(item.emojiChar, currentStyle, 'png');
+                    const destFile = path.join(targetFolder, `emoji_${cleanName}.png`);
+                    await Net.downloadFile(dlUrl, destFile);
+                    alert(`Saved emoji "${cleanName}.png" to ${path.basename(targetFolder)}!`);
+                } else if (item.type === 'local' || item.type === 'clipboard') {
+                    const destFile = path.join(targetFolder, path.basename(item.fullPath));
+                    fs.copyFileSync(item.fullPath, destFile);
+                    alert(`Saved "${path.basename(destFile)}" to ${path.basename(targetFolder)}!`);
+                }
+
+                if (currentTab === 'folders' && currentCategory !== 'custom') {
+                    renderFolders();
+                }
+            } catch (saveErr) {
+                alert(`Error saving to folder: ${saveErr.message}`);
+            }
+        };
+    }
+
+    // Create New Subfolder in Selected Folder
+    const btnModalNewSubfolder = document.getElementById('btn-modal-new-subfolder');
+    if (btnModalNewSubfolder) {
+        btnModalNewSubfolder.onclick = () => {
+            const modalFolderSelect = document.getElementById('modal-folder-select');
+            const baseFolder = modalFolderSelect ? modalFolderSelect.value : null;
+            if (!baseFolder || !fs || !fs.existsSync(baseFolder)) {
+                alert("Please select a parent folder from the dropdown first!");
+                return;
+            }
+            const subName = prompt("Enter new subfolder name:");
+            if (subName && subName.trim()) {
+                const newPath = path.join(baseFolder, subName.trim());
+                if (!fs.existsSync(newPath)) {
+                    fs.mkdirSync(newPath, { recursive: true });
+                }
+                AssetManager.addLinkedFolder(newPath);
+                updateFolderDropdown();
+                if (modalFolderSelect) {
+                    modalFolderSelect.value = newPath;
+                }
+                alert(`Created subfolder "${subName.trim()}"!`);
+            }
+        };
+    }
+
+    // Top Header IMG PASTE Button (MediaFetch Master Lossless)
+    const btnClipboard = document.getElementById('btn-clipboard-paste');
+    if (btnClipboard) {
+        btnClipboard.addEventListener('click', (e) => {
+            e.preventDefault();
+            pasteImageFromClipboard();
+        });
     }
 
     // Background preview toggle

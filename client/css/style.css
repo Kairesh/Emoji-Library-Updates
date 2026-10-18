@@ -152,6 +152,48 @@ html, body {
     border-color: var(--border-medium);
 }
 
+/* MediaFetch Pro Style Clipboard Paste Button */
+.mf-clipboard-wrapper {
+    display: inline-flex;
+    align-items: center;
+    background: #1c73e8;
+    border-radius: 6px;
+    padding: 1px 4px;
+    height: 25px;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
+    transition: all 0.15s ease;
+}
+
+.btn-clipboard-paste {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    height: 23px;
+    font-size: 10px;
+    font-weight: 700;
+    padding: 0 5px;
+    border: none;
+    background: transparent;
+    color: #ffffff;
+    cursor: pointer;
+    box-sizing: border-box;
+    transition: all 0.15s ease;
+    white-space: nowrap;
+}
+
+.btn-clipboard-paste svg {
+    stroke: #ffffff;
+    flex-shrink: 0;
+}
+
+.btn-clipboard-paste:hover {
+    opacity: 0.9;
+}
+
+.btn-clipboard-paste:active {
+    transform: scale(0.96);
+}
+
 /* ==========================================================================
    2. CATEGORY PILLS BAR (MediaFetch Platform Chips Bar)
    ========================================================================== */
@@ -886,16 +928,19 @@ html, body {
 }
 
 .preview-render-box {
-    width: 90px;
-    height: 90px;
+    width: 84px;
+    height: 84px;
     display: flex;
     align-items: center;
     justify-content: center;
+    padding: 6px;
+    box-sizing: border-box;
 }
 .preview-render-box img, .preview-render-box svg {
     max-width: 100%;
     max-height: 100%;
     object-fit: contain;
+    overflow: visible !important;
 }
 
 .preview-bg-toggle {

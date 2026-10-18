@@ -175,9 +175,29 @@ var EMOJI_HOST = {
                 }
             }
 
+            // Find or create "Icons" folder in AE Project panel
+            var iconsFolder = null;
+            for (var fIdx = 1; fIdx <= app.project.items.length; fIdx++) {
+                var pFolder = app.project.items[fIdx];
+                if (pFolder instanceof FolderItem && pFolder.name === "Icons") {
+                    iconsFolder = pFolder;
+                    break;
+                }
+            }
+            if (!iconsFolder) {
+                try {
+                    iconsFolder = app.project.items.addFolder("Icons");
+                } catch (addFoldErr) {}
+            }
+
             if (!footageItem) {
                 var importOptions = new ImportOptions(file);
                 footageItem = app.project.importFile(importOptions);
+            }
+            if (footageItem && iconsFolder) {
+                try {
+                    footageItem.parentFolder = iconsFolder;
+                } catch (fErr) {}
             }
             
             // Add to composition
@@ -315,19 +335,34 @@ var EMOJI_HOST = {
     // PREMIERE PRO SPECIFIC METHODS
     // ----------------------------------------------------
     prInsertFootage: function(filePath, emojiName) {
-        var activeSeq = app.project.activeSequence;
-        if (!activeSeq) {
-            return "ERROR: Please open a Sequence first.";
-        }
-
         try {
+            // Find or create "Icons" bin in Premiere Pro Project panel
+            var iconsBin = null;
+            var root = app.project.rootItem;
+            if (root && root.children) {
+                for (var b = 0; b < root.children.numItems; b++) {
+                    var cBin = root.children[b];
+                    if (cBin && cBin.type === 2 && cBin.name === "Icons") { // 2 = BIN
+                        iconsBin = cBin;
+                        break;
+                    }
+                }
+                if (!iconsBin) {
+                    try {
+                        iconsBin = root.createBin("Icons");
+                    } catch (bErr) {
+                        iconsBin = root;
+                    }
+                }
+            }
+
             // First check if the item is already in project bins to avoid duplicates
             var projectItem = this.prFindProjectItemByPath(filePath);
             
             if (!projectItem) {
                 var filePaths = [filePath];
-                // Premiere importFiles API: importFiles(filePaths, suppressUI, targetBin, importAsNumberedStills)
-                var success = app.project.importFiles(filePaths, true, app.project.getInsertionBin(), false);
+                var targetBin = iconsBin || (app.project.getInsertionBin ? app.project.getInsertionBin() : root);
+                var success = app.project.importFiles(filePaths, true, targetBin, false);
                 if (!success) {
                     return "ERROR: Premiere failed to import the file.";
                 }
@@ -338,8 +373,20 @@ var EMOJI_HOST = {
                 return "ERROR: Could not find imported item in project bin.";
             }
 
+            // Move into Icons bin if not already inside
+            if (projectItem && iconsBin && projectItem.parent !== iconsBin) {
+                try {
+                    projectItem.move(iconsBin);
+                } catch (mvErr) {}
+            }
+
             // Name the item nicely
             projectItem.name = "Emoji - " + emojiName;
+
+            var activeSeq = app.project.activeSequence;
+            if (!activeSeq) {
+                return "SUCCESS"; // Successfully imported into Icons project bin!
+            }
 
             var playheadTime = activeSeq.getPlayerPosition();
             var inserted = false;

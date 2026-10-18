@@ -1,8 +1,8 @@
 {
-  "version": "2.4.0",
+  "version": "2.5.0",
   "name": "Emoji & Icon Studio by Kairesh",
   "zxpUrl": "https://raw.githubusercontent.com/Kairesh/Emoji-Library-Updates/main/Emoji-Library.zxp",
   "backupZxpUrl": "https://cdn.jsdelivr.net/gh/Kairesh/Emoji-Library-Updates@main/Emoji-Library.zxp",
   "updateUrl": "https://github.com/Kairesh/Emoji-Library-Updates/releases/latest",
-  "releaseNotes": "v2.4.0 Studio Polish & Quality Update!\n• Fixed Settings drawer full screen overlay (never trapped behind grid)\n• Fixed imported GIF & media aspect ratio squishing (true dimensions preserved)\n• Clean compact search bar with icon-only action button and responsive auto-scaling\n• High-res Google Android, Twemoji, Apple and Microsoft emoji rendering\n• Fixed skin-tone tofu boxes and blank cards (only human emojis accept tone modifiers)\n• Single-item delete button in Folders and Playlists\n• Unified single Emoji-Library.zxp package (no versioned file duplicates)"
+  "releaseNotes": "v2.5.0 Studio Super Update!\n• Lossless 100% Quality IMG PASTE button (imports clipboard image directly to Project Icons bin & timeline)\n• Fixed Premiere Pro insertion bug (eliminated comp error by synchronous host appId detection)\n• Automatic 'Icons' folder creation on disk and 'Icons' bin in Project panel (Pr & Ae)\n• Clean folder dropdown showing only folder names (path retained in tooltip)\n• Category pills auto-slide and center smoothly when clicked\n• Fixed SVG stroke clipping: borders never cut or crop even at maximum thickness\n• Brand new 1st tab: Recent (tracks recently used emojis, icons & pasted images)\n• Merged Custom Playlists into Folders (2nd category option)\n• Save custom icons/emojis to local linked folders with instant subfolder creation"
 }

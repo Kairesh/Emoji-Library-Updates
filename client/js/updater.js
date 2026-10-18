@@ -34,7 +34,7 @@ const PluginUpdater = (function () {
         } catch (e) {
             console.warn("getInstalledVersion warning:", e);
         }
-        return "2.5.0";
+        return "2.6.0";
     }
 
     function compareVersions(v1, v2) {

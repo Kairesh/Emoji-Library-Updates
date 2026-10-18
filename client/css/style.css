@@ -194,6 +194,25 @@ html, body {
     transform: scale(0.96);
 }
 
+.select-clipboard-format {
+    height: 19px;
+    font-size: 9.5px;
+    font-weight: 700;
+    background: rgba(0, 0, 0, 0.28);
+    color: #ffffff;
+    border: 1px solid rgba(255, 255, 255, 0.28);
+    border-radius: 4px;
+    padding: 0 3px;
+    cursor: pointer;
+    outline: none;
+    margin-right: 1px;
+}
+
+.select-clipboard-format option {
+    background: #18191c;
+    color: #ffffff;
+}
+
 /* ==========================================================================
    2. CATEGORY PILLS BAR (MediaFetch Platform Chips Bar)
    ========================================================================== */

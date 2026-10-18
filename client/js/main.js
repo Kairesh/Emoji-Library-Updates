@@ -878,20 +878,53 @@ function renderRecents() {
 // ----------------------------------------------------
 // LOSSLESS CLIPBOARD IMAGE PASTE (MediaFetch Master)
 // ----------------------------------------------------
+// LOSSLESS CLIPBOARD IMAGE PASTE (MediaFetch Pro Engine)
+// ----------------------------------------------------
+function convertImageFileToPng(filePath) {
+    return new Promise((resolve, reject) => {
+        try {
+            const img = new Image();
+            img.onload = () => {
+                try {
+                    const canvas = document.createElement('canvas');
+                    canvas.width = img.naturalWidth || 1024;
+                    canvas.height = img.naturalHeight || 1024;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0);
+                    const dataUrl = canvas.toDataURL('image/png');
+                    const base64Data = dataUrl.replace(/^data:image\/png;base64,/, '');
+                    resolve(Buffer.from(base64Data, 'base64'));
+                } catch (e) {
+                    reject(e);
+                }
+            };
+            img.onerror = () => reject(new Error("Failed to decode image"));
+            img.src = `file://${filePath.replace(/\\/g, '/')}`;
+        } catch (err) {
+            reject(err);
+        }
+    });
+}
+
 async function pasteImageFromClipboard() {
     const btn = document.getElementById('btn-clipboard-paste');
+    const formatSelect = document.getElementById('select-clipboard-format');
+    const targetFormat = (formatSelect ? formatSelect.value : 'png').toLowerCase();
+    const isPremiere = (hostApp === 'PPRO');
+
     if (btn) {
         btn.classList.add('loading');
         btn.style.opacity = '0.6';
         btn.style.pointerEvents = 'none';
     }
 
-    updateStatus("Reading image from clipboard...", "info");
+    updateStatus(`Reading clipboard (${targetFormat.toUpperCase()})...`, "info");
 
     try {
         const assetsDir = await resolveAssetsDir();
         const nowStr = Date.now();
-        const outImg = path ? path.join(assetsDir, `Clipboard_${nowStr}.png`) : `C:\\Icons\\Clipboard_${nowStr}.png`;
+        const outExt = (targetFormat === 'jpg') ? 'jpg' : (targetFormat === 'svg' ? 'svg' : 'png');
+        const outImg = path ? path.join(assetsDir, `Clipboard_${nowStr}.${outExt}`) : `C:\\Icons\\Clipboard_${nowStr}.${outExt}`;
         const escapedPath = outImg.replace(/'/g, "''");
 
         const psScript = `
@@ -903,22 +936,53 @@ if ($data -eq $null) {
     exit 0;
 }
 $saved = $false;
-if ($data.GetDataPresent('PNG')) {
-    $stream = $data.GetData('PNG');
-    if ($stream -is [System.IO.MemoryStream]) {
-        [System.IO.File]::WriteAllBytes('${escapedPath}', $stream.ToArray());
-        Write-Output 'SAVED_IMAGE:${escapedPath}';
+
+# 1. Check for SVG markup in clipboard text if SVG format is selected
+if ('${targetFormat}' -eq 'svg' -and [System.Windows.Forms.Clipboard]::ContainsText()) {
+    $t = [System.Windows.Forms.Clipboard]::GetText();
+    if ($t -match '<svg[\\s\\S]*</svg>') {
+        [System.IO.File]::WriteAllText('${escapedPath}', $t, [System.Text.Encoding]::UTF8);
+        Write-Output 'SAVED_SVG:${escapedPath}';
         $saved = $true;
     }
 }
+
+# 2. Extract PNG stream if present and re-encode to clean standard baseline format
+if (-not $saved -and $data.GetDataPresent('PNG')) {
+    $stream = $data.GetData('PNG');
+    if ($stream -is [System.IO.MemoryStream]) {
+        try {
+            $bmp = [System.Drawing.Image]::FromStream($stream);
+            if ('${targetFormat}' -eq 'jpg') {
+                $bmp.Save('${escapedPath}', [System.Drawing.Imaging.ImageFormat]::Jpeg);
+            } else {
+                $bmp.Save('${escapedPath}', [System.Drawing.Imaging.ImageFormat]::Png);
+            }
+            Write-Output 'SAVED_IMAGE:${escapedPath}';
+            $saved = $true;
+        } catch {
+            [System.IO.File]::WriteAllBytes('${escapedPath}', $stream.ToArray());
+            Write-Output 'SAVED_IMAGE:${escapedPath}';
+            $saved = $true;
+        }
+    }
+}
+
+# 3. Standard GDI+ Bitmap from Clipboard
 if (-not $saved -and [System.Windows.Forms.Clipboard]::ContainsImage()) {
     $img = [System.Windows.Forms.Clipboard]::GetImage();
     if ($img -ne $null) {
-        $img.Save('${escapedPath}', [System.Drawing.Imaging.ImageFormat]::Png);
+        if ('${targetFormat}' -eq 'jpg') {
+            $img.Save('${escapedPath}', [System.Drawing.Imaging.ImageFormat]::Jpeg);
+        } else {
+            $img.Save('${escapedPath}', [System.Drawing.Imaging.ImageFormat]::Png);
+        }
         Write-Output 'SAVED_IMAGE:${escapedPath}';
         $saved = $true;
     }
 }
+
+# 4. Check for genuine copied image files only (strictly filter out video/audio files)
 if (-not $saved -and [System.Windows.Forms.Clipboard]::ContainsFileDropList()) {
     $f = [System.Windows.Forms.Clipboard]::GetFileDropList();
     Write-Output ('FILES:' + ($f -join '|'));
@@ -926,6 +990,7 @@ if (-not $saved -and [System.Windows.Forms.Clipboard]::ContainsFileDropList()) {
 `;
 
         let savedImagePath = null;
+        let isSvgAsset = false;
 
         if (cp && os && os.platform() === 'win32') {
             await new Promise((resolve) => {
@@ -934,7 +999,14 @@ if (-not $saved -and [System.Windows.Forms.Clipboard]::ContainsFileDropList()) {
                     timeout: 7000
                 }, (err, stdout) => {
                     const out = (stdout || '').trim();
-                    if (out.includes('SAVED_IMAGE:')) {
+                    if (out.includes('SAVED_SVG:')) {
+                        const line = out.split('\n').find(l => l.includes('SAVED_SVG:')) || '';
+                        const fp = line.substring(line.indexOf('SAVED_SVG:') + 'SAVED_SVG:'.length).trim();
+                        if (fs && fs.existsSync(fp) && fs.statSync(fp).size > 20) {
+                            savedImagePath = fp;
+                            isSvgAsset = true;
+                        }
+                    } else if (out.includes('SAVED_IMAGE:')) {
                         const line = out.split('\n').find(l => l.includes('SAVED_IMAGE:')) || '';
                         const fp = line.substring(line.indexOf('SAVED_IMAGE:') + 'SAVED_IMAGE:'.length).trim();
                         if (fs && fs.existsSync(fp) && fs.statSync(fp).size > 100) {
@@ -946,8 +1018,10 @@ if (-not $saved -and [System.Windows.Forms.Clipboard]::ContainsFileDropList()) {
                         const files = out.substring(out.indexOf('FILES:') + 'FILES:'.length).trim().split('|');
                         for (const f of files) {
                             const ext = path ? path.extname(f).toLowerCase() : '';
-                            if (['.png', '.jpg', '.jpeg', '.webp', '.svg', '.gif'].includes(ext) && fs && fs.existsSync(f)) {
+                            // Strictly accept genuine image formats only - ignore videos, audios, projects!
+                            if (['.png', '.jpg', '.jpeg', '.webp', '.svg', '.gif', '.bmp'].includes(ext) && fs && fs.existsSync(f)) {
                                 savedImagePath = f;
+                                if (ext === '.svg') isSvgAsset = true;
                                 break;
                             }
                         }
@@ -981,20 +1055,43 @@ if (-not $saved -and [System.Windows.Forms.Clipboard]::ContainsFileDropList()) {
         }
 
         if (savedImagePath && fs && fs.existsSync(savedImagePath)) {
-            const fileName = path ? path.basename(savedImagePath) : "Pasted Image";
-            triggerHostImport(savedImagePath, fileName, 512);
+            let finalImportPath = savedImagePath;
+
+            // In Premiere Pro: ALWAYS convert SVG or WebP to high-res PNG before importing to avoid "unsupported compression type"
+            const currentExt = (path ? path.extname(finalImportPath) : '').toLowerCase();
+            if (isPremiere && (currentExt === '.svg' || currentExt === '.webp')) {
+                try {
+                    let pngBuffer = null;
+                    if (currentExt === '.svg') {
+                        const svgText = fs.readFileSync(finalImportPath, 'utf8');
+                        pngBuffer = await convertSvgToPng(svgText, 1024);
+                    } else {
+                        pngBuffer = await convertImageFileToPng(finalImportPath);
+                    }
+                    if (pngBuffer) {
+                        const prPngPath = path.join(assetsDir, `Clipboard_${nowStr}_pr.png`);
+                        fs.writeFileSync(prPngPath, pngBuffer);
+                        finalImportPath = prPngPath;
+                    }
+                } catch (convPrErr) {
+                    console.warn("Premiere raster conversion failed:", convPrErr);
+                }
+            }
+
+            const fileName = path ? path.basename(finalImportPath) : "Pasted Image";
+            triggerHostImport(finalImportPath, fileName, 512);
 
             addToRecent({
                 type: 'clipboard',
                 name: fileName,
-                fullPath: savedImagePath,
-                ext: path ? path.extname(savedImagePath) : '.png'
+                fullPath: finalImportPath,
+                ext: path ? path.extname(finalImportPath) : '.png'
             });
 
             if (currentTab === 'recent') {
                 renderRecents();
             }
-            updateStatus("Clipboard image inserted into Icons bin & timeline!", "success");
+            updateStatus(`Pasted clipboard image (${targetFormat.toUpperCase()}) into Project Icons bin & timeline!`, "success");
         } else {
             updateStatus("No image found on clipboard. Copy an image first!", "warning");
             alert("No image found on clipboard.\n\nPlease copy an image or take a screenshot (e.g. Win+Shift+S), then click IMG PASTE.");
@@ -1190,7 +1287,30 @@ async function insertActiveCustomizerItem() {
 
     try {
         if (item.type === 'local' || item.type === 'clipboard') {
-            triggerHostImport(item.fullPath, item.name, size);
+            let importPath = item.fullPath;
+            const ext = (path ? path.extname(importPath) : '').toLowerCase();
+
+            // Premiere Pro has no native SVG/WebP codec - auto rasterize to clean 1024px PNG to eliminate unsupported compression errors
+            if (isPremiere && (ext === '.svg' || ext === '.webp')) {
+                try {
+                    let pngBuffer = null;
+                    if (ext === '.svg' && fs) {
+                        const svgContent = fs.readFileSync(importPath, 'utf8');
+                        pngBuffer = await convertSvgToPng(svgContent, 1024);
+                    } else if (ext === '.webp') {
+                        pngBuffer = await convertImageFileToPng(importPath);
+                    }
+                    if (pngBuffer) {
+                        const localPng = path.join(assetsDir, `${item.name.replace(/[^a-zA-Z0-9_-]/g, '_')}_pr.png`);
+                        fs.writeFileSync(localPng, pngBuffer);
+                        importPath = localPng;
+                    }
+                } catch (convErr) {
+                    console.warn("Conversion for Premiere failed:", convErr);
+                }
+            }
+
+            triggerHostImport(importPath, item.name, size);
             return;
         }
 

@@ -23,7 +23,7 @@
                 </div>
                 <div class="header-actions">
                     <div class="mf-clipboard-wrapper">
-                        <button id="btn-clipboard-paste" class="btn-clipboard-paste" type="button" title="Paste Image from Clipboard (Lossless 100% Quality) — Imports to Project Icons Bin & Timeline">
+                        <button id="btn-clipboard-paste" class="btn-clipboard-paste" type="button" title="Paste Image from Clipboard — Imports to Project Icons Bin & Timeline">
                             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                                 <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
                                 <circle cx="8.5" cy="8.5" r="1.5"></circle>
@@ -31,6 +31,11 @@
                             </svg>
                             <span>IMG PASTE</span>
                         </button>
+                        <select id="select-clipboard-format" class="select-clipboard-format" title="Clipboard Image Output Format (PNG, JPG, SVG)">
+                            <option value="png" selected>PNG</option>
+                            <option value="jpg">JPG</option>
+                            <option value="svg">SVG</option>
+                        </select>
                     </div>
                     <button id="toggle-settings" class="icon-btn-settings" title="Settings & Guides">⚙️</button>
                 </div>

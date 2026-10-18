@@ -1,9 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<ExtensionList>
-    <Extension Id="com.antigravity.emojilib.panel">
-        <HostList>
-            <Host Name="AEFT" Port="8090" />
-            <Host Name="PPRO" Port="8091" />
-        </HostList>
-    </Extension>
-</ExtensionList>

@@ -111,6 +111,15 @@
                 </div>
             </div>
 
+            <!-- Recents Sub-Toolbar (Clear All & Counter) -->
+            <div id="recents-subtoolbar" class="subtoolbar" style="display: none; justify-content: space-between; align-items: center;">
+                <span id="recents-counter-text" style="font-size: 11px; color: var(--text-muted); font-weight: 500;">Recently Used Assets</span>
+                <button id="btn-clear-recents" class="secondary-btn danger" title="Clear all recent assets" style="padding: 2px 10px; font-size: 11px; display: inline-flex; align-items: center; gap: 5px;">
+                    <svg width="12" height="12" viewBox="0 0 24 24"><path fill="currentColor" d="M9 3v1H4v2h1v13a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V6h1V4h-5V3H9zm2 2h2v1h-2V5zm-2 4h2v9H9V9zm4 0h2v9h-2V9z"/></svg>
+                    <span>Clear All</span>
+                </button>
+            </div>
+
             <!-- Composer Area (for Text Layer mode) -->
             <div class="composer-container" id="composer-container" style="display: none;">
                 <textarea id="composer-textarea" placeholder="Type text here & click emojis below to add..."></textarea>

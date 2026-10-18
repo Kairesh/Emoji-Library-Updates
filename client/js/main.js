@@ -150,20 +150,22 @@ function getAssetsDirSync() {
 }
 
 // Prepare or retrieve the physical file path on disk for dragging / saving
-function prepareAssetFileSync(item, sync = false) {
+function prepareAssetFileSync(card, item) {
     if (!item) return null;
+    const assetsDir = getAssetsDirSync();
+    if (!fs || !path) return null;
+
+    // 1. Local files or clipboard pastes
     if (item.type === 'local' || item.type === 'clipboard') {
-        if (item.fullPath && fs && fs.existsSync(item.fullPath)) {
+        if (item.fullPath && fs.existsSync(item.fullPath)) {
             return item.fullPath;
         }
         return null;
     }
 
-    const assetsDir = getAssetsDirSync();
-    if (!fs || !path) return null;
-
+    // 2. Vector Icons
     if (item.type === 'icon') {
-        const cleanName = (item.name || 'icon').replace(/[^a-zA-Z0-9_-]/g, '_');
+        const cleanName = (item.name || item.iconFullName || 'icon').replace(/[^a-zA-Z0-9_-]/g, '_');
         const color = item.color || '#ffffff';
         const colorClean = color.replace('#', '');
         const strokeWidth = item.strokeWidth || 2;
@@ -173,17 +175,52 @@ function prepareAssetFileSync(item, sync = false) {
             return localSvg;
         }
 
+        // Try extracting rendered SVG from DOM card
+        let svgText = '';
+        if (card) {
+            const svgEl = card.querySelector('svg');
+            if (svgEl) {
+                svgText = svgEl.outerHTML;
+            }
+        }
+
+        // If not in DOM, check IconEngine memory cache
+        if (!svgText && typeof IconEngine !== "undefined" && IconEngine.batchDataCache) {
+            const fullName = item.iconFullName || item.name || '';
+            const parts = fullName.split(':');
+            const p = parts.length > 1 ? parts[0] : 'ph';
+            const n = parts.length > 1 ? parts[1] : parts[0];
+            const cachedCol = IconEngine.batchDataCache.get(p);
+            if (cachedCol && cachedCol.icons && cachedCol.icons[n]) {
+                const iconObj = cachedCol.icons[n];
+                const w = iconObj.width || cachedCol.width || 24;
+                const h = iconObj.height || cachedCol.height || 24;
+                let body = (iconObj.body || '').replace(/currentColor/g, color);
+                svgText = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${w} ${h}" width="100%" height="100%">${body}</svg>`;
+            }
+        }
+
+        if (svgText) {
+            try {
+                fs.writeFileSync(localSvg, svgText, 'utf8');
+                if (fs.existsSync(localSvg)) return localSvg;
+            } catch (e) {}
+        }
+
+        // Background fetch as well
         if (typeof IconEngine !== "undefined" && IconEngine.fetchSvgContent) {
-            IconEngine.fetchSvgContent(item.iconFullName, { color, strokeWidth })
-                .then(svgText => {
-                    if (svgText && fs && !fs.existsSync(localSvg)) {
-                        fs.writeFileSync(localSvg, svgText, 'utf8');
+            IconEngine.fetchSvgContent(item.iconFullName || item.name, { color, strokeWidth })
+                .then(text => {
+                    if (text && !fs.existsSync(localSvg)) {
+                        fs.writeFileSync(localSvg, text, 'utf8');
                     }
                 }).catch(() => {});
         }
+
         return fs.existsSync(localSvg) ? localSvg : null;
     }
 
+    // 3. Emojis
     if (item.type === 'emoji') {
         const hex = getEmojiHex(item.emojiChar);
         const style = item.style || currentStyle || 'microsoft';
@@ -193,43 +230,93 @@ function prepareAssetFileSync(item, sync = false) {
             return localPng;
         }
 
+        // Try extracting rendered image from card into canvas
+        let savedFromCanvas = false;
+        if (card) {
+            const img = card.querySelector('img');
+            if (img && img.complete && img.naturalWidth > 0) {
+                try {
+                    const canvas = document.createElement('canvas');
+                    canvas.width = img.naturalWidth || 256;
+                    canvas.height = img.naturalHeight || 256;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0);
+                    const base64 = canvas.toDataURL('image/png').replace(/^data:image\/png;base64,/, '');
+                    fs.writeFileSync(localPng, Buffer.from(base64, 'base64'));
+                    savedFromCanvas = fs.existsSync(localPng);
+                } catch (e) {}
+            }
+        }
+
+        // If canvas image extraction wasn't possible, generate instant crisp glyph PNG
+        if (!savedFromCanvas && item.emojiChar) {
+            try {
+                const canvas = document.createElement('canvas');
+                canvas.width = 256;
+                canvas.height = 256;
+                const ctx = canvas.getContext('2d');
+                ctx.font = '180px "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(item.emojiChar, 128, 140);
+                const base64 = canvas.toDataURL('image/png').replace(/^data:image\/png;base64,/, '');
+                fs.writeFileSync(localPng, Buffer.from(base64, 'base64'));
+            } catch (e) {}
+        }
+
+        // Download official asset in background
         const dlUrl = getEmojiDownloadUrl(item.emojiChar, style, 'png');
         if (typeof Net !== "undefined" && Net.downloadFile) {
             Net.downloadFile(dlUrl, localPng).catch(() => {});
         }
+
         return fs.existsSync(localPng) ? localPng : null;
     }
 
     return null;
 }
 
-// Interactive Drag & Drop into After Effects Composition & Premiere Pro Timeline
+// Interactive Drag & Drop into Adobe Premiere Pro & After Effects
 function setupCardDrag(card, item) {
     if (!card || !item) return;
     card.setAttribute('draggable', 'true');
 
     // Pre-cache file on pointerenter so it is written to disk before drag starts
     card.addEventListener('pointerenter', () => {
-        prepareAssetFileSync(item, false);
+        prepareAssetFileSync(card, item);
     });
 
     card.addEventListener('dragstart', (e) => {
         try {
-            const localPath = prepareAssetFileSync(item, true);
-            if (localPath && fs && fs.existsSync(localPath)) {
-                const normPath = localPath.replace(/\\/g, '/');
-                const fileUri = 'file:///' + normPath;
-                const fileName = path ? path.basename(localPath) : 'asset.png';
+            const localPath = prepareAssetFileSync(card, item);
+            if (!localPath || !fs || !fs.existsSync(localPath)) {
+                console.warn("[Drag] Could not prepare local file path for item:", item);
+                e.preventDefault();
+                return;
+            }
 
-                e.dataTransfer.effectAllowed = 'copyMove';
+            const nativeWinPath = localPath.replace(/\//g, '\\');
+            const slashPath = localPath.replace(/\\/g, '/');
+            const fileUri = 'file:///' + slashPath;
+            const fileName = path ? path.basename(localPath) : 'asset.png';
 
-                // Standard CEF / Chromium DownloadURL format triggers native Windows OS file drop
-                e.dataTransfer.setData('DownloadURL', `application/octet-stream:${fileName}:${fileUri}`);
-                e.dataTransfer.setData('text/uri-list', fileUri);
-                e.dataTransfer.setData('text/plain', localPath);
+            e.dataTransfer.effectAllowed = 'copyMove';
 
-                card.classList.add('dragging');
-                updateStatus(`Drop onto Composition or Timeline to insert...`, 'info');
+            // 1. Adobe CEP Native DnD (For Premiere Pro Timeline & Project Bins, AE Project Panel)
+            e.dataTransfer.setData('com.adobe.cep.dnd.file.0', nativeWinPath);
+            e.dataTransfer.setData('com.adobe.cep.dnd.file', nativeWinPath);
+
+            // 2. Standard URI & Text formats (for OS Windows Explorer, external drop)
+            e.dataTransfer.setData('text/uri-list', fileUri);
+            e.dataTransfer.setData('text/plain', nativeWinPath);
+            e.dataTransfer.setData('DownloadURL', `application/octet-stream:${fileName}:${fileUri}`);
+
+            card.classList.add('dragging');
+
+            if (isHostPremiere()) {
+                updateStatus(`Drop onto Premiere Timeline track or Project bin to insert!`, 'info');
+            } else {
+                updateStatus(`Drop onto Project panel, or Double-Click card to insert into Comp!`, 'info');
             }
         } catch (dragErr) {
             console.warn("Dragstart error:", dragErr);
@@ -238,6 +325,20 @@ function setupCardDrag(card, item) {
 
     card.addEventListener('dragend', () => {
         card.classList.remove('dragging');
+    });
+
+    // Double-click on any card: direct 1-click instant insert into Comp/Timeline!
+    card.addEventListener('dblclick', (e) => {
+        e.stopPropagation();
+        const localPath = prepareAssetFileSync(card, item);
+        if (localPath) {
+            const assetName = item.name || (item.type === 'emoji' ? 'Emoji' : 'Icon');
+            const size = Settings.get('defaultSize') || 256;
+            triggerHostImport(localPath, assetName, size, false);
+            addToRecent(item);
+        } else {
+            openCustomizer(item);
+        }
     });
 }
 
@@ -465,6 +566,7 @@ function initTabs() {
     const emojiSub = document.getElementById('emoji-subtoolbar');
     const iconControls = document.getElementById('icon-controls-inline');
     const folderSub = document.getElementById('folder-subtoolbar');
+    const recentsSub = document.getElementById('recents-subtoolbar');
 
     tabButtons.forEach(btn => {
         btn.addEventListener('click', () => {
@@ -476,12 +578,25 @@ function initTabs() {
             if (emojiSub) emojiSub.style.display = (currentTab === 'emojis') ? 'flex' : 'none';
             if (iconControls) iconControls.style.display = (currentTab === 'icons') ? 'flex' : 'none';
             if (folderSub) folderSub.style.display = (currentTab === 'folders') ? 'flex' : 'none';
+            if (recentsSub) recentsSub.style.display = (currentTab === 'recent') ? 'flex' : 'none';
 
             closeCategoryPopover();
             updateCategoryBarAndPopover();
             renderCurrentTab();
         });
     });
+
+    // Wire Clear All Recents button
+    const btnClearRecents = document.getElementById('btn-clear-recents');
+    if (btnClearRecents) {
+        btnClearRecents.addEventListener('click', () => {
+            const list = getRecents();
+            if (!list || list.length === 0) return;
+            localStorage.removeItem(RECENT_STORAGE_KEY);
+            renderRecents();
+            updateStatus('Cleared all recent assets.', 'info');
+        });
+    }
 
     // Wire Popover Toggle if element exists
     const btnPopover = document.getElementById('btn-category-popover');
@@ -1012,6 +1127,17 @@ function renderRecents() {
     if (searchQuery) {
         const q = searchQuery.toLowerCase();
         recents = recents.filter(r => (r.name && r.name.toLowerCase().includes(q)) || (r.emojiChar && r.emojiChar.includes(q)));
+    }
+
+    const counterText = document.getElementById('recents-counter-text');
+    const btnClear = document.getElementById('btn-clear-recents');
+    if (counterText) {
+        counterText.textContent = `${recents.length} Recent Asset${recents.length === 1 ? '' : 's'}`;
+    }
+    if (btnClear) {
+        btnClear.disabled = (recents.length === 0);
+        btnClear.style.opacity = (recents.length === 0) ? '0.4' : '1';
+        btnClear.style.pointerEvents = (recents.length === 0) ? 'none' : 'auto';
     }
 
     if (recents.length === 0) {

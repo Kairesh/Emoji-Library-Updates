@@ -685,6 +685,9 @@ html, body {
 
 .asset-card[draggable="true"] {
     cursor: grab;
+    -webkit-user-drag: element;
+    user-select: none;
+    -webkit-user-select: none;
 }
 
 .asset-card[draggable="true"]:active {
@@ -719,6 +722,7 @@ html, body {
     z-index: 5;
     transition: all 0.15s ease;
     padding: 0;
+    pointer-events: auto;
 }
 
 .asset-card:hover .asset-folder-save-btn {
@@ -736,12 +740,18 @@ html, body {
     height: 100%;
     object-fit: contain;
     pointer-events: none;
+    -webkit-user-drag: none;
+    user-select: none;
+    -webkit-user-select: none;
 }
 
 .asset-card svg {
     width: 100%;
     height: 100%;
     pointer-events: none;
+    -webkit-user-drag: none;
+    user-select: none;
+    -webkit-user-select: none;
 }
 
 .asset-card .unicode-char, .card-emoji-text {
@@ -751,7 +761,9 @@ html, body {
     align-items: center;
     justify-content: center;
     user-select: none;
+    -webkit-user-select: none;
     pointer-events: none;
+    -webkit-user-drag: none;
 }
 
 .asset-badge {

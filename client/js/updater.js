@@ -3,6 +3,11 @@
  * Powered by GitHub repository releases & version.json
  */
 const PluginUpdater = (function () {
+    const MANIFEST_URLS = [
+        "https://raw.githubusercontent.com/Kairesh/Emoji-Library-Updates/main/version.json",
+        "https://cdn.jsdelivr.net/gh/Kairesh/Emoji-Library-Updates@main/version.json"
+    ];
+
     function getInstalledVersion() {
         try {
             // First check if user completed in-app update
@@ -265,7 +270,7 @@ const PluginUpdater = (function () {
     return {
         check: checkForUpdates,
         showModal: showUpdateModal,
-        version: CURRENT_VERSION
+        version: getInstalledVersion
     };
 })();
 

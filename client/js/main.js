@@ -215,6 +215,24 @@ function createEmojiCard(emoji) {
         img.alt = emoji.name;
         img.loading = "lazy";
         img.src = getEmojiDownloadUrl(emojiChar, currentStyle, 'png');
+        img.onerror = function() {
+            if (this.dataset.fallback !== 'apple') {
+                this.dataset.fallback = 'apple';
+                this.src = `https://emojicdn.elk.sh/${encodeURIComponent(emojiChar)}?style=apple`;
+            } else if (this.dataset.fallback !== 'google') {
+                this.dataset.fallback = 'google';
+                this.src = `https://emojicdn.elk.sh/${encodeURIComponent(emojiChar)}?style=google`;
+            } else {
+                const parent = this.parentElement;
+                if (parent) {
+                    parent.innerHTML = '';
+                    const span = document.createElement('span');
+                    span.className = 'card-emoji-text';
+                    span.textContent = emojiChar;
+                    parent.appendChild(span);
+                }
+            }
+        };
         card.appendChild(img);
     } else {
         const span = document.createElement('span');
@@ -544,6 +562,12 @@ async function updateCustomizerPreview() {
         if (currentStyle === 'apple' || currentStyle === 'microsoft') {
             const img = document.createElement('img');
             img.src = getEmojiDownloadUrl(activeCustomizerItem.emojiChar, currentStyle, 'png');
+            img.onerror = function() {
+                if (this.dataset.fallback !== 'apple') {
+                    this.dataset.fallback = 'apple';
+                    this.src = `https://emojicdn.elk.sh/${encodeURIComponent(activeCustomizerItem.emojiChar)}?style=apple`;
+                }
+            };
             img.style.maxWidth = '100%';
             img.style.maxHeight = '100%';
             previewRenderBox.appendChild(img);
@@ -632,11 +656,18 @@ async function insertActiveCustomizerItem() {
         }
 
         if (item.type === 'icon') {
-            const svgText = await IconEngine.fetchSvgContent(item.iconFullName, {
+            let svgText = await IconEngine.fetchSvgContent(item.iconFullName, {
                 color: color,
                 strokeWidth: strokeWidth
             });
 
+            // Ensure animated or trimmed stroke lines are fully visible at t=0
+            svgText = svgText
+                .replace(/stroke-dashoffset="[^"]*"/g, 'stroke-dashoffset="0"')
+                .replace(/visibility="hidden"/g, '')
+                .replace(/opacity="0"/g, 'opacity="1"');
+
+            const isAnimated = !!(item.iconFullName && item.iconFullName.startsWith('line-md'));
             const cleanName = item.name.replace(/[^a-zA-Z0-9_-]/g, '_');
             const colorClean = color.replace('#', '');
 
@@ -644,11 +675,11 @@ async function insertActiveCustomizerItem() {
                 const pngBuffer = await convertSvgToPng(svgText, 1024);
                 const localPng = path.join(assetsDir, `icon_${cleanName}_${colorClean}.png`);
                 fs.writeFileSync(localPng, pngBuffer);
-                triggerHostImport(localPng, item.name, size);
+                triggerHostImport(localPng, item.name, size, isAnimated);
             } else {
                 const localSvg = path.join(assetsDir, `icon_${cleanName}_${colorClean}.svg`);
                 fs.writeFileSync(localSvg, svgText, 'utf8');
-                triggerHostImport(localSvg, item.name, size);
+                triggerHostImport(localSvg, item.name, size, isAnimated);
             }
         } else if (item.type === 'emoji') {
             const hex = getEmojiHex(item.emojiChar);
@@ -695,7 +726,12 @@ async function insertActiveCustomizerItem() {
                     }
                 } else {
                     const dlUrl = getEmojiDownloadUrl(item.emojiChar, currentStyle, 'png');
-                    await Net.downloadFile(dlUrl, localFile);
+                    try {
+                        await Net.downloadFile(dlUrl, localFile);
+                    } catch (dlErr) {
+                        const fallbackUrl = `https://emojicdn.elk.sh/${encodeURIComponent(item.emojiChar)}?style=apple`;
+                        await Net.downloadFile(fallbackUrl, localFile);
+                    }
                 }
             }
             triggerHostImport(localFile, item.name, size);
@@ -706,7 +742,7 @@ async function insertActiveCustomizerItem() {
     }
 }
 
-function triggerHostImport(filePath, assetName, size) {
+function triggerHostImport(filePath, assetName, size, isAnimated = false) {
     const isPremiere = (hostApp === 'PPRO');
     const safePath = filePath.replace(/\\/g, "\\\\");
     const safeName = assetName.replace(/["\\]/g, "");
@@ -724,7 +760,7 @@ function triggerHostImport(filePath, assetName, size) {
         });
     } else {
         const convertToShape = (currentFormat === 'svg' && filePath.toLowerCase().endsWith('.svg'));
-        const script = `EMOJI_HOST.aeInsertFootage("${safePath}", "${safeName}", ${size}, ${convertToShape})`;
+        const script = `EMOJI_HOST.aeInsertFootage("${safePath}", "${safeName}", ${size}, ${convertToShape}, ${isAnimated})`;
         csInterface.evalScript(script, (result) => {
             if (result === 'SUCCESS') {
                 updateStatus(`Inserted ${assetName} into AE composition!`, 'success');

@@ -138,7 +138,7 @@ var EMOJI_HOST = {
         }
     },
 
-    aeInsertFootage: function(filePath, emojiName, targetSize, convertToShape) {
+    aeInsertFootage: function(filePath, emojiName, targetSize, convertToShape, isAnimated) {
         var comp = app.project.activeItem;
         if (!comp || !(comp instanceof CompItem)) {
             return "ERROR: Please select or open a Composition first.";
@@ -236,7 +236,42 @@ var EMOJI_HOST = {
 
                         // Only remove original if a new shape layer was actually generated
                         if (comp.layers.length > origCount) {
+                            var newShapeLayer = comp.selectedLayers[0] || comp.layers[1];
                             layer.remove();
+
+                            // If this is an animated vector icon (line-md), add native AE motion graphics animation
+                            if (isAnimated && newShapeLayer) {
+                                try {
+                                    var nameLower = (emojiName || "").toLowerCase();
+                                    
+                                    // 1. Rotation animation for rotating/looping icons
+                                    if (nameLower.indexOf("loading") !== -1 || 
+                                        nameLower.indexOf("spinner") !== -1 || 
+                                        nameLower.indexOf("rotate") !== -1 || 
+                                        nameLower.indexOf("refresh") !== -1 || 
+                                        nameLower.indexOf("sync") !== -1 || 
+                                        nameLower.indexOf("loop") !== -1) {
+                                        var rotProp = newShapeLayer.property("ADBE Transform Group").property("ADBE Rotation");
+                                        if (rotProp) {
+                                            rotProp.expression = "time * 240;";
+                                        }
+                                    }
+
+                                    // 2. Add native Trim Paths drawing animation for stroke icons
+                                    var rootVectors = newShapeLayer.property("ADBE Root Vectors Group");
+                                    if (rootVectors) {
+                                        var trim = rootVectors.addProperty("ADBE Vector Filter - Trim");
+                                        if (trim) {
+                                            var curTime = comp.time;
+                                            var endProp = trim.property("ADBE Vector Trim End");
+                                            if (endProp) {
+                                                endProp.setValueAtTime(curTime, 0);
+                                                endProp.setValueAtTime(curTime + 1.0, 100);
+                                            }
+                                        }
+                                    }
+                                } catch (animErr) {}
+                            }
                         } else {
                             layer.enabled = true;
                             layer.selected = true;

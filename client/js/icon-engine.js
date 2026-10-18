@@ -50,7 +50,7 @@ const IconEngine = (function () {
         "simple-icons:apple", "simple-icons:twitch", "simple-icons:whatsapp", "simple-icons:google",
         // Retro Gaming & Fun (Pixelarticons)
         "pixelarticons:heart", "pixelarticons:zap", "pixelarticons:gamepad", "pixelarticons:trophy",
-        "pixelarticons:coin", "pixelarticons:ghost", "pixelarticons:power", "pixelarticons:music",
+        "pixelarticons:coin", "pixelarticons:dice", "pixelarticons:power", "pixelarticons:music",
         // Motion & System (Tabler & Heroicons)
         "tabler:trending-up", "tabler:refresh", "tabler:sparkles", "tabler:flame", "tabler:wand",
         "tabler:arrow-right", "tabler:arrow-left", "tabler:arrow-up", "tabler:arrow-down",

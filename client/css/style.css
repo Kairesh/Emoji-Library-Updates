@@ -276,9 +276,24 @@ body {
 /* Grid & Content Area */
 .emoji-container {
     flex: 1;
-    overflow-y: auto;
+    overflow-y: scroll;
     padding: 10px;
     background-color: var(--bg-dark);
+}
+
+.emoji-container::-webkit-scrollbar {
+    width: 8px;
+}
+.emoji-container::-webkit-scrollbar-track {
+    background: rgba(0, 0, 0, 0.25);
+    border-radius: 4px;
+}
+.emoji-container::-webkit-scrollbar-thumb {
+    background: #4a4a4a;
+    border-radius: 4px;
+}
+.emoji-container::-webkit-scrollbar-thumb:hover {
+    background: #6a6a6a;
 }
 
 .asset-grid {

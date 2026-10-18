@@ -266,7 +266,7 @@ function getEmojiDownloadUrl(emojiChar, style, format) {
 let currentIconList = [];
 let displayedIconCount = 0;
 let isIconLoading = false;
-const ICON_CHUNK_SIZE = 60;
+const ICON_CHUNK_SIZE = 100;
 
 async function renderIcons(reset = true) {
     const librarySelect = document.getElementById('icon-library-select');
@@ -370,13 +370,13 @@ async function loadMoreIcons() {
 
         updateStatus(`Showing ${displayedIconCount} of ${currentIconList.length.toLocaleString()} icons (scroll for more)`);
 
-        // If viewport has extra vertical space, automatically fetch next batch so scrollbar appears
-        const scrollContainer = document.querySelector('.emoji-container');
-        if (scrollContainer && scrollContainer.scrollHeight <= scrollContainer.clientHeight + 60 && displayedIconCount < currentIconList.length) {
-            isIconLoading = false;
-            await loadMoreIcons();
-            return;
-        }
+        // If content does not yet fill the scrollable container, automatically load the next batch
+        setTimeout(() => {
+            const scrollContainer = document.querySelector('.emoji-container');
+            if (scrollContainer && scrollContainer.scrollHeight <= scrollContainer.clientHeight + 100 && displayedIconCount < currentIconList.length) {
+                loadMoreIcons();
+            }
+        }, 50);
     } catch (err) {
         console.error("loadMoreIcons error:", err);
     } finally {
@@ -1108,8 +1108,8 @@ document.addEventListener('DOMContentLoaded', () => {
     // Infinite scroll listener for both Emojis and Icons
     const scrollContainer = document.querySelector('.emoji-container');
     if (scrollContainer) {
-        scrollContainer.addEventListener('scroll', () => {
-            const threshold = 350;
+        const handleScrollOrWheel = () => {
+            const threshold = 400;
             if (scrollContainer.scrollTop + scrollContainer.clientHeight >= scrollContainer.scrollHeight - threshold) {
                 if (currentTab === 'emojis') {
                     renderEmojis(false);
@@ -1117,7 +1117,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     loadMoreIcons();
                 }
             }
-        });
+        };
+
+        scrollContainer.addEventListener('scroll', handleScrollOrWheel);
+        scrollContainer.addEventListener('wheel', handleScrollOrWheel, { passive: true });
     }
 
     // Update version badge dynamically

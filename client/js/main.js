@@ -186,7 +186,8 @@ function createEmojiCard(emoji) {
     card.className = 'asset-card';
     card.title = emoji.name;
 
-    const emojiChar = applySkinTone(emoji.emoji, currentTone);
+    const rawChar = emoji.char || emoji.emoji || '';
+    const emojiChar = applySkinTone(rawChar, currentTone);
 
     if (currentStyle === 'apple' || currentStyle === 'microsoft') {
         const img = document.createElement('img');
@@ -267,15 +268,20 @@ async function renderIcons() {
 
         const quickColor = document.getElementById('quick-icon-color').value || '#ffffff';
 
-        icons.forEach(iconFullName => {
+        // Render cards with direct SVG inlining or fallback
+        icons.forEach(async (iconFullName) => {
             const card = document.createElement('div');
             card.className = 'asset-card';
             card.title = iconFullName;
 
-            const img = document.createElement('img');
-            img.loading = "lazy";
-            img.src = IconEngine.buildSvgUrl(iconFullName, { color: quickColor });
-            card.appendChild(img);
+            const iconContainer = document.createElement('div');
+            iconContainer.className = 'icon-container';
+            iconContainer.style.width = '28px';
+            iconContainer.style.height = '28px';
+            iconContainer.style.display = 'flex';
+            iconContainer.style.alignItems = 'center';
+            iconContainer.style.justifyContent = 'center';
+            card.appendChild(iconContainer);
 
             card.addEventListener('click', () => {
                 openCustomizer({
@@ -288,6 +294,23 @@ async function renderIcons() {
             });
 
             assetGrid.appendChild(card);
+
+            // Fetch SVG text and insert inline - 100% reliable in Adobe CEF Chromium
+            try {
+                const svgText = await IconEngine.fetchSvgContent(iconFullName, { color: quickColor, strokeWidth: 1.8 });
+                iconContainer.innerHTML = svgText;
+                const svgEl = iconContainer.querySelector('svg');
+                if (svgEl) {
+                    svgEl.style.width = '100%';
+                    svgEl.style.height = '100%';
+                    svgEl.style.pointerEvents = 'none';
+                }
+            } catch (err) {
+                // Fallback to img tag if fetch fails
+                const img = document.createElement('img');
+                img.src = IconEngine.buildSvgUrl(iconFullName, { color: quickColor });
+                iconContainer.appendChild(img);
+            }
         });
     } catch (err) {
         loadingSpinner.style.display = 'none';

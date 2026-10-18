@@ -3,7 +3,7 @@
  * Powered by GitHub repository releases & version.json
  */
 const PluginUpdater = (function () {
-    const CURRENT_VERSION = "2.0.0";
+    const CURRENT_VERSION = "1.9.9"; // Tested against remote v2.0.0 to trigger update popup
     const MANIFEST_URLS = [
         "https://raw.githubusercontent.com/Kairesh/Emoji-Library-Updates/main/version.json",
         "https://cdn.jsdelivr.net/gh/Kairesh/Emoji-Library-Updates@main/version.json"

@@ -97,9 +97,11 @@ const IconEngine = (function () {
         const color = options.color || "#ffffff";
         const strokeWidth = options.strokeWidth || 2;
         const encodedColor = encodeURIComponent(color);
+        const w = options.width || 32;
+        const h = options.height || 32;
         
-        // Iconify allows query parameters: ?color=#fff&stroke-width=2
-        return `${base}/${iconFullName}.svg?color=${encodedColor}`;
+        // Iconify allows query parameters: ?color=#fff&width=32&height=32
+        return `${base}/${iconFullName}.svg?color=${encodedColor}&width=${w}&height=${h}`;
     }
 
     async function fetchSvgContent(iconFullName, options = {}) {

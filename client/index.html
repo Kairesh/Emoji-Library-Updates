@@ -149,20 +149,22 @@
 
                 <!-- API Keys & Custom CDN Guide -->
                 <div class="setting-card">
-                    <div class="card-title">🔑 Custom API Keys & Self-Hosted Endpoints</div>
+                    <div class="card-title">🔑 Zero API Keys Required (Free & Open Source)</div>
                     <p class="card-hint">
-                        All icons & emojis stream completely <b>free without any API key</b> via official open-source CDNs.
-                        If you have your own enterprise/private Iconify mirror or GitHub token for higher rate limits, enter it below:
+                        All 200,000+ icons and emojis are <b>100% free open-source</b> and stream automatically via public open CDNs without needing any API keys or account. <b>No personal API key is used or needed.</b>
+                    </p>
+                    <p class="card-hint" style="margin-top: 4px;">
+                        Optional Advanced: Only if you host your own custom private server, you can configure it below:
                     </p>
                     <div class="input-field-group">
-                        <label>Custom Iconify API Endpoint (Optional)</label>
-                        <input type="text" id="setting-iconify-api" placeholder="Default: https://api.iconify.design" class="text-input-styled" />
+                        <label>Custom Self-Hosted Icon API (Optional)</label>
+                        <input type="text" id="setting-iconify-api" placeholder="Default: Public Open CDN" class="text-input-styled" />
                     </div>
                     <div class="input-field-group">
                         <label>GitHub Personal Access Token (Optional)</label>
-                        <input type="password" id="setting-github-token" placeholder="ghp_xxxxxxxxxxxxxxxxxxxx" class="text-input-styled" />
+                        <input type="password" id="setting-github-token" placeholder="Optional token for custom rate limits" class="text-input-styled" />
                     </div>
-                    <button id="btn-save-keys" class="primary-btn" style="width: 100%; margin-top: 8px;">Save API Configuration</button>
+                    <button id="btn-save-keys" class="primary-btn" style="width: 100%; margin-top: 8px;">Save Settings</button>
                 </div>
 
                 <!-- Project Asset Storage -->

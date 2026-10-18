@@ -186,6 +186,7 @@ function renderEmojis(reset = true) {
 
         if (currentFilteredEmojis.length === 0) {
             noResults.style.display = 'block';
+            updateStatus("No matching emojis found.");
             return;
         } else {
             noResults.style.display = 'none';
@@ -198,6 +199,7 @@ function renderEmojis(reset = true) {
         assetGrid.appendChild(card);
     });
     displayedEmojiCount += nextBatch.length;
+    updateStatus(`Showing ${displayedEmojiCount} of ${currentFilteredEmojis.length.toLocaleString()} emojis (scroll for more)`);
 }
 
 function createEmojiCard(emoji) {
@@ -259,33 +261,68 @@ function getEmojiDownloadUrl(emojiChar, style, format) {
 }
 
 // ----------------------------------------------------
-// TAB 2: ICONS (200k+ Online Streaming)
+// TAB 2: ICONS (200k+ Online Streaming & Infinite Scroll)
 // ----------------------------------------------------
-async function renderIcons() {
-    assetGrid.innerHTML = '';
-    noResults.style.display = 'none';
-    loadingSpinner.style.display = 'flex';
+let currentIconList = [];
+let displayedIconCount = 0;
+let isIconLoading = false;
+const ICON_CHUNK_SIZE = 60;
 
+async function renderIcons(reset = true) {
     const librarySelect = document.getElementById('icon-library-select');
     const selectedPrefix = librarySelect ? librarySelect.value : 'all';
     const query = (searchQuery || '').trim();
 
-    try {
-        const icons = await IconEngine.searchIcons(query, selectedPrefix, 80);
+    if (reset) {
+        assetGrid.innerHTML = '';
+        displayedIconCount = 0;
+        noResults.style.display = 'none';
+        loadingSpinner.style.display = 'flex';
+        updateStatus("Loading icon collection...");
 
-        if (!icons || icons.length === 0) {
-            loadingSpinner.style.display = 'none';
-            noResults.style.display = 'block';
-            return;
+        try {
+            currentIconList = await IconEngine.searchIcons(query, selectedPrefix);
+
+            // In All Libraries without search query, prefetch and stream the top collections in the background
+            if ((!selectedPrefix || selectedPrefix === 'all') && !query) {
+                IconEngine.getAllLibrariesStream().then(fullStream => {
+                    if (currentTab === 'icons' && (!searchQuery || !searchQuery.trim())) {
+                        currentIconList = fullStream;
+                        updateStatus(`Showing ${displayedIconCount} of ${currentIconList.length.toLocaleString()} icons (scroll for more)`);
+                    }
+                }).catch(e => console.warn("All libraries stream prefetch error:", e));
+            }
+        } catch (err) {
+            console.error("searchIcons error:", err);
+            currentIconList = [];
         }
 
-        const quickColor = (document.getElementById('quick-icon-color') && document.getElementById('quick-icon-color').value) || '#ffffff';
-
-        // Batch-fetch all SVGs in a single HTTP request per collection
-        const svgMap = await IconEngine.fetchBatchIcons(icons, { color: quickColor, strokeWidth: 1.8 });
         loadingSpinner.style.display = 'none';
 
-        icons.forEach((iconFullName) => {
+        if (!currentIconList || currentIconList.length === 0) {
+            noResults.style.display = 'block';
+            updateStatus("No matching icons found.");
+            return;
+        }
+    }
+
+    await loadMoreIcons();
+}
+
+async function loadMoreIcons() {
+    if (isIconLoading || displayedIconCount >= currentIconList.length) return;
+    isIconLoading = true;
+    loadingSpinner.style.display = 'flex';
+
+    const nextBatch = currentIconList.slice(displayedIconCount, displayedIconCount + ICON_CHUNK_SIZE);
+    displayedIconCount += nextBatch.length;
+
+    const quickColor = (document.getElementById('quick-icon-color') && document.getElementById('quick-icon-color').value) || '#ffffff';
+
+    try {
+        const svgMap = await IconEngine.fetchBatchIcons(nextBatch, { color: quickColor, strokeWidth: 1.8 });
+
+        nextBatch.forEach((iconFullName) => {
             const card = document.createElement('div');
             card.className = 'asset-card';
             card.title = iconFullName;
@@ -330,10 +367,21 @@ async function renderIcons() {
 
             assetGrid.appendChild(card);
         });
+
+        updateStatus(`Showing ${displayedIconCount} of ${currentIconList.length.toLocaleString()} icons (scroll for more)`);
+
+        // If viewport has extra vertical space, automatically fetch next batch so scrollbar appears
+        const scrollContainer = document.querySelector('.emoji-container');
+        if (scrollContainer && scrollContainer.scrollHeight <= scrollContainer.clientHeight + 60 && displayedIconCount < currentIconList.length) {
+            isIconLoading = false;
+            await loadMoreIcons();
+            return;
+        }
     } catch (err) {
+        console.error("loadMoreIcons error:", err);
+    } finally {
+        isIconLoading = false;
         loadingSpinner.style.display = 'none';
-        noResults.style.display = 'block';
-        console.error("renderIcons error:", err);
     }
 }
 
@@ -1054,6 +1102,21 @@ document.addEventListener('DOMContentLoaded', () => {
         quickColorInput.addEventListener('input', () => {
             if (colorPreviewDot) colorPreviewDot.style.background = quickColorInput.value;
             if (currentTab === 'icons') renderIcons();
+        });
+    }
+
+    // Infinite scroll listener for both Emojis and Icons
+    const scrollContainer = document.querySelector('.emoji-container');
+    if (scrollContainer) {
+        scrollContainer.addEventListener('scroll', () => {
+            const threshold = 350;
+            if (scrollContainer.scrollTop + scrollContainer.clientHeight >= scrollContainer.scrollHeight - threshold) {
+                if (currentTab === 'emojis') {
+                    renderEmojis(false);
+                } else if (currentTab === 'icons') {
+                    loadMoreIcons();
+                }
+            }
         });
     }
 

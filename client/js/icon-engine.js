@@ -7,10 +7,10 @@ const IconEngine = (function () {
     const COLLECTIONS = [
         { id: "all", name: "All Libraries", category: "all" },
         // Category A: Modern UI & Minimalist
-        { id: "lucide", name: "Lucide", category: "minimal", count: "1,800+" },
+        { id: "lucide", name: "Lucide", category: "minimal", count: "2,100+" },
         { id: "ph", name: "Phosphor", category: "minimal", count: "9,000+" },
-        { id: "tabler", name: "Tabler", category: "minimal", count: "5,500+" },
-        { id: "heroicons", name: "Heroicons", category: "minimal", count: "800+" },
+        { id: "tabler", name: "Tabler", category: "minimal", count: "6,000+" },
+        { id: "heroicons", name: "Heroicons", category: "minimal", count: "1,200+" },
         { id: "iconoir", name: "Iconoir", category: "minimal", count: "1,500+" },
         { id: "ri", name: "Remix Icon", category: "minimal", count: "2,800+" },
         { id: "bi", name: "Bootstrap Icons", category: "minimal", count: "2,000+" },
@@ -21,10 +21,10 @@ const IconEngine = (function () {
         { id: "mage", name: "Mage Icons", category: "minimal", count: "1,200+" },
         { id: "css.gg", name: "CSS.gg Icons", category: "minimal", count: "700+" },
         // Category B: Hand-Drawn & Retro Fun
-        { id: "pixelarticons", name: "Pixelarticons", category: "retro", count: "480+" },
+        { id: "pixelarticons", name: "Pixelarticons", category: "retro", count: "1,300+" },
         { id: "doodle", name: "Doodle Icons", category: "retro", count: "400+" },
         // Category C: Brand & Tech Logos
-        { id: "simple-icons", name: "Brand & Tech Logos", category: "brands", count: "3,200+" },
+        { id: "simple-icons", name: "Brand & Tech Logos", category: "brands", count: "3,700+" },
         // Category D: Multi-Color & Flags
         { id: "openmoji", name: "OpenMoji", category: "color", count: "4,000+" },
         { id: "flagpack", name: "Flagpack (Flags)", category: "color", count: "250+" },
@@ -60,6 +60,7 @@ const IconEngine = (function () {
 
     const searchCache = new Map();
     const svgCache = new Map();
+    const collectionListCache = new Map();
     // Cache for batch JSON payloads: prefix -> { icons: { name: { body, width, height } }, width, height }
     const batchDataCache = new Map();
 
@@ -73,10 +74,100 @@ const IconEngine = (function () {
         return "https://api.iconify.design";
     }
 
-    async function searchIcons(query, prefix = "all", limit = 80) {
+    /**
+     * Loads the complete set of icons for a specific collection.
+     * Uses jsDelivr CDN mirrors to bypass all Cloudflare API rate limits.
+     */
+    async function getCollectionIcons(prefix) {
+        if (collectionListCache.has(prefix)) {
+            return collectionListCache.get(prefix);
+        }
+
+        // Primary source: jsDelivr icon-sets CDN
+        try {
+            const cdnUrl = `https://cdn.jsdelivr.net/gh/iconify/icon-sets@master/json/${prefix}.json`;
+            const data = await Net.getJSON(cdnUrl);
+            if (data && data.icons) {
+                batchDataCache.set(prefix, data);
+                const p = data.prefix || prefix;
+                const names = Object.keys(data.icons);
+                if (data.aliases) {
+                    for (const a in data.aliases) {
+                        const parentKey = data.aliases[a].parent;
+                        if (data.icons[parentKey]) {
+                            data.icons[a] = data.icons[parentKey];
+                            names.push(a);
+                        }
+                    }
+                }
+                const fullList = Array.from(new Set(names)).map(n => `${p}:${n}`);
+                collectionListCache.set(prefix, fullList);
+                return fullList;
+            }
+        } catch (cdnErr) {
+            console.warn(`jsDelivr fetch failed for ${prefix}, trying fallback:`, cdnErr);
+        }
+
+        // Fallback: iconify API
+        try {
+            const base = getApiBase();
+            const url = `${base}/collection?prefix=${prefix}`;
+            const data = await Net.getJSON(url);
+            if (data) {
+                const p = data.prefix || prefix;
+                let names = [];
+                if (Array.isArray(data.uncategorized)) {
+                    names = names.concat(data.uncategorized);
+                }
+                if (data.categories) {
+                    for (const catName in data.categories) {
+                        if (Array.isArray(data.categories[catName])) {
+                            names = names.concat(data.categories[catName]);
+                        }
+                    }
+                }
+                const fullList = Array.from(new Set(names)).map(n => `${p}:${n}`);
+                if (fullList.length > 0) {
+                    collectionListCache.set(prefix, fullList);
+                    return fullList;
+                }
+            }
+        } catch (apiErr) {
+            console.warn(`Iconify API fetch failed for ${prefix}:`, apiErr);
+        }
+
+        return [];
+    }
+
+    /**
+     * Builds an infinite stream for "All Libraries" by combining top collections.
+     */
+    async function getAllLibrariesStream() {
+        const topPrefixes = ['lucide', 'ph', 'tabler', 'simple-icons', 'pixelarticons', 'heroicons'];
+        const lists = await Promise.all(topPrefixes.map(getCollectionIcons));
+        
+        const combined = [...CURATED_DEFAULT_ICONS];
+        const seen = new Set(CURATED_DEFAULT_ICONS);
+        const maxLen = Math.max(...lists.map(l => l.length));
+
+        for (let i = 0; i < maxLen; i++) {
+            for (const list of lists) {
+                if (i < list.length) {
+                    const item = list[i];
+                    if (!seen.has(item)) {
+                        seen.add(item);
+                        combined.push(item);
+                    }
+                }
+            }
+        }
+        return combined;
+    }
+
+    async function searchIcons(query, prefix = "all") {
         const base = getApiBase();
-        const cleanQuery = (query || "").trim();
-        const cacheKey = `${cleanQuery}_${prefix}_${limit}`;
+        const cleanQuery = (query || "").trim().toLowerCase();
+        const cacheKey = `${cleanQuery}_${prefix}`;
         if (searchCache.has(cacheKey)) {
             return searchCache.get(cacheKey);
         }
@@ -86,39 +177,34 @@ const IconEngine = (function () {
         try {
             if (!cleanQuery) {
                 if (!prefix || prefix === "all") {
-                    // Return diverse curated mix across libraries
-                    iconList = CURATED_DEFAULT_ICONS.slice(0, limit);
+                    // For All Libraries, start with curated list immediately, and background-expand with full stream
+                    iconList = [...CURATED_DEFAULT_ICONS];
                 } else {
-                    // Load specific collection
-                    const url = `${base}/collection?prefix=${prefix}`;
-                    const data = await Net.getJSON(url);
-                    if (data) {
-                        const p = data.prefix || prefix;
-                        let names = [];
-                        if (Array.isArray(data.uncategorized)) {
-                            names = names.concat(data.uncategorized);
-                        }
-                        if (data.categories) {
-                            for (const catName in data.categories) {
-                                if (Array.isArray(data.categories[catName])) {
-                                    names = names.concat(data.categories[catName]);
-                                }
-                            }
-                        }
-                        iconList = names.slice(0, limit).map(n => `${p}:${n}`);
-                    }
+                    // Load ALL icons in the selected collection
+                    iconList = await getCollectionIcons(prefix);
                 }
             } else {
-                const encodedQuery = encodeURIComponent(cleanQuery);
-                let url = "";
                 if (prefix && prefix !== "all") {
-                    url = `${base}/search?query=${encodedQuery}&prefixes=${prefix}&limit=${limit}`;
+                    // Check if collection is already loaded locally for instant search
+                    if (collectionListCache.has(prefix)) {
+                        const allNames = collectionListCache.get(prefix);
+                        iconList = allNames.filter(name => name.toLowerCase().includes(cleanQuery));
+                    } else {
+                        const encodedQuery = encodeURIComponent(cleanQuery);
+                        const url = `${base}/search?query=${encodedQuery}&prefixes=${prefix}&limit=999`;
+                        const data = await Net.getJSON(url);
+                        if (data && Array.isArray(data.icons)) {
+                            iconList = data.icons;
+                        }
+                    }
                 } else {
-                    url = `${base}/search?query=${encodedQuery}&limit=${limit}`;
-                }
-                const data = await Net.getJSON(url);
-                if (data && Array.isArray(data.icons)) {
-                    iconList = data.icons;
+                    // Search across all libraries
+                    const encodedQuery = encodeURIComponent(cleanQuery);
+                    const url = `${base}/search?query=${encodedQuery}&limit=999`;
+                    const data = await Net.getJSON(url);
+                    if (data && Array.isArray(data.icons)) {
+                        iconList = data.icons;
+                    }
                 }
             }
 
@@ -131,8 +217,8 @@ const IconEngine = (function () {
     }
 
     /**
-     * Batch-fetch icon definitions for multiple icons in single HTTP requests per collection.
-     * Completely prevents Cloudflare / Iconify HTTP 429 rate-limiting.
+     * Batch-fetch icon definitions for multiple icons.
+     * Checks in-memory cache first for instant rendering with 0 network calls.
      */
     async function fetchBatchIcons(iconFullNames, options = {}) {
         const base = getApiBase();
@@ -265,6 +351,8 @@ const IconEngine = (function () {
     return {
         collections: COLLECTIONS,
         searchIcons: searchIcons,
+        getCollectionIcons: getCollectionIcons,
+        getAllLibrariesStream: getAllLibrariesStream,
         fetchBatchIcons: fetchBatchIcons,
         buildSvgUrl: buildSvgUrl,
         fetchSvgContent: fetchSvgContent

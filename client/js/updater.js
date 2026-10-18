@@ -95,6 +95,14 @@ const PluginUpdater = (function () {
                     sStatus.style.color = "#02a676";
                 }
             } else {
+                if (isManual) {
+                    // Show modal info confirming they are on the latest version or show release notes
+                    showUpdateModal(data, currentVer);
+                    const btnInstall = document.getElementById('btn-modal-update-now');
+                    if (btnInstall) {
+                        btnInstall.textContent = "Reinstall v" + data.version;
+                    }
+                }
                 if (isManual && sStatus) {
                     sStatus.textContent = `You're on the latest version (v${currentVer}).`;
                     sStatus.style.color = "#02a676";

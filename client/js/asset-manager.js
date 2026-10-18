@@ -8,11 +8,19 @@ const AssetManager = (function () {
     const SUPPORTED_EXTS = ['.png', '.jpg', '.jpeg', '.svg', '.gif', '.webp', '.mp4'];
 
     function getLinkedFolders() {
-        return Settings.get('linkedFolders') || [];
+        let folders = Settings.get('linkedFolders') || [];
+        if (fs) {
+            const valid = folders.filter(f => f && fs.existsSync(f));
+            if (valid.length !== folders.length) {
+                Settings.set('linkedFolders', valid);
+                folders = valid;
+            }
+        }
+        return folders;
     }
 
     function addLinkedFolder(folderPath) {
-        if (!folderPath) return;
+        if (!folderPath || !fs || !fs.existsSync(folderPath)) return;
         const folders = getLinkedFolders();
         if (!folders.includes(folderPath)) {
             folders.push(folderPath);
@@ -24,6 +32,50 @@ const AssetManager = (function () {
         let folders = getLinkedFolders();
         folders = folders.filter(f => f !== folderPath);
         Settings.set('linkedFolders', folders);
+    }
+
+    async function saveAssetToFolder(targetFolder, item, options = {}) {
+        if (!targetFolder || !fs || !fs.existsSync(targetFolder)) {
+            throw new Error("Target folder does not exist on disk.");
+        }
+        const cleanName = (item.name || 'asset').replace(/[^a-zA-Z0-9_-]/g, '_');
+        let destPath = null;
+
+        if (item.type === 'icon') {
+            const color = options.color || '#ffffff';
+            const strokeWidth = options.strokeWidth || 2;
+            let svgText = '';
+            if (typeof IconEngine !== "undefined" && IconEngine.fetchSvgContent) {
+                svgText = await IconEngine.fetchSvgContent(item.iconFullName, { color, strokeWidth });
+            } else if (item.svgContent) {
+                svgText = item.svgContent;
+            }
+            if (!svgText) throw new Error("Could not retrieve vector SVG content.");
+            destPath = path.join(targetFolder, `${cleanName}.svg`);
+            fs.writeFileSync(destPath, svgText, 'utf8');
+        } else if (item.type === 'emoji') {
+            const style = options.style || 'microsoft';
+            let dlUrl = "";
+            if (typeof getEmojiDownloadUrl === "function") {
+                dlUrl = getEmojiDownloadUrl(item.emojiChar, style, 'png');
+            } else {
+                dlUrl = `https://emojicdn.elk.sh/${encodeURIComponent(item.emojiChar)}?style=${style}`;
+            }
+            destPath = path.join(targetFolder, `emoji_${cleanName}.png`);
+            if (typeof Net !== "undefined" && Net.downloadFile) {
+                await Net.downloadFile(dlUrl, destPath);
+            }
+        } else if (item.type === 'local' || item.type === 'clipboard') {
+            if (item.fullPath && fs.existsSync(item.fullPath)) {
+                const baseName = item.fileName || path.basename(item.fullPath);
+                destPath = path.join(targetFolder, baseName);
+                fs.copyFileSync(item.fullPath, destPath);
+            } else {
+                throw new Error("Source file does not exist on disk.");
+            }
+        }
+
+        return destPath;
     }
 
     function scanFolder(folderPath, recursive = false) {
@@ -104,7 +156,8 @@ const AssetManager = (function () {
         createPlaylist: createPlaylist,
         deletePlaylist: deletePlaylist,
         addToPlaylist: addToPlaylist,
-        removeFromPlaylist: removeFromPlaylist
+        removeFromPlaylist: removeFromPlaylist,
+        saveAssetToFolder: saveAssetToFolder
     };
 })();
 

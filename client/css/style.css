@@ -683,8 +683,52 @@ html, body {
     z-index: 2;
 }
 
+.asset-card[draggable="true"] {
+    cursor: grab;
+}
+
+.asset-card[draggable="true"]:active {
+    cursor: grabbing;
+}
+
+.asset-card.dragging {
+    opacity: 0.45;
+    transform: scale(0.92);
+    border-color: var(--accent-primary) !important;
+    box-shadow: 0 0 10px rgba(2, 166, 118, 0.45);
+}
+
 .asset-card:active {
     transform: scale(0.96);
+}
+
+.asset-folder-save-btn {
+    position: absolute;
+    bottom: 3px;
+    right: 3px;
+    width: 17px;
+    height: 17px;
+    background: rgba(0, 0, 0, 0.72);
+    border: 1px solid var(--border-medium);
+    border-radius: 4px;
+    font-size: 9px;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    z-index: 5;
+    transition: all 0.15s ease;
+    padding: 0;
+}
+
+.asset-card:hover .asset-folder-save-btn {
+    display: flex;
+}
+
+.asset-folder-save-btn:hover {
+    background: var(--accent-primary);
+    border-color: var(--accent-primary);
+    transform: scale(1.12);
 }
 
 .asset-card img {

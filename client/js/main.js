@@ -133,6 +133,137 @@ async function resolveAssetsDir() {
     return targetDir;
 }
 
+let cachedAssetsDir = "";
+function getAssetsDirSync() {
+    if (cachedAssetsDir && fs && fs.existsSync(cachedAssetsDir)) return cachedAssetsDir;
+    let target = "";
+    if (os && path) {
+        target = path.join(os.homedir(), "Documents", "Icons");
+    } else {
+        target = "C:\\Icons";
+    }
+    if (fs && !fs.existsSync(target)) {
+        try { fs.mkdirSync(target, { recursive: true }); } catch (_) {}
+    }
+    cachedAssetsDir = target;
+    return target;
+}
+
+// Prepare or retrieve the physical file path on disk for dragging / saving
+function prepareAssetFileSync(item, sync = false) {
+    if (!item) return null;
+    if (item.type === 'local' || item.type === 'clipboard') {
+        if (item.fullPath && fs && fs.existsSync(item.fullPath)) {
+            return item.fullPath;
+        }
+        return null;
+    }
+
+    const assetsDir = getAssetsDirSync();
+    if (!fs || !path) return null;
+
+    if (item.type === 'icon') {
+        const cleanName = (item.name || 'icon').replace(/[^a-zA-Z0-9_-]/g, '_');
+        const color = item.color || '#ffffff';
+        const colorClean = color.replace('#', '');
+        const strokeWidth = item.strokeWidth || 2;
+        const localSvg = path.join(assetsDir, `icon_${cleanName}_${colorClean}.svg`);
+
+        if (fs.existsSync(localSvg)) {
+            return localSvg;
+        }
+
+        if (typeof IconEngine !== "undefined" && IconEngine.fetchSvgContent) {
+            IconEngine.fetchSvgContent(item.iconFullName, { color, strokeWidth })
+                .then(svgText => {
+                    if (svgText && fs && !fs.existsSync(localSvg)) {
+                        fs.writeFileSync(localSvg, svgText, 'utf8');
+                    }
+                }).catch(() => {});
+        }
+        return fs.existsSync(localSvg) ? localSvg : null;
+    }
+
+    if (item.type === 'emoji') {
+        const hex = getEmojiHex(item.emojiChar);
+        const style = item.style || currentStyle || 'microsoft';
+        const localPng = path.join(assetsDir, `emoji_${style}_${hex}.png`);
+
+        if (fs.existsSync(localPng)) {
+            return localPng;
+        }
+
+        const dlUrl = getEmojiDownloadUrl(item.emojiChar, style, 'png');
+        if (typeof Net !== "undefined" && Net.downloadFile) {
+            Net.downloadFile(dlUrl, localPng).catch(() => {});
+        }
+        return fs.existsSync(localPng) ? localPng : null;
+    }
+
+    return null;
+}
+
+// Interactive Drag & Drop into After Effects Composition & Premiere Pro Timeline
+function setupCardDrag(card, item) {
+    if (!card || !item) return;
+    card.setAttribute('draggable', 'true');
+
+    // Pre-cache file on pointerenter so it is written to disk before drag starts
+    card.addEventListener('pointerenter', () => {
+        prepareAssetFileSync(item, false);
+    });
+
+    card.addEventListener('dragstart', (e) => {
+        try {
+            const localPath = prepareAssetFileSync(item, true);
+            if (localPath && fs && fs.existsSync(localPath)) {
+                const normPath = localPath.replace(/\\/g, '/');
+                const fileUri = 'file:///' + normPath;
+                const fileName = path ? path.basename(localPath) : 'asset.png';
+
+                e.dataTransfer.effectAllowed = 'copyMove';
+
+                // Standard CEF / Chromium DownloadURL format triggers native Windows OS file drop
+                e.dataTransfer.setData('DownloadURL', `application/octet-stream:${fileName}:${fileUri}`);
+                e.dataTransfer.setData('text/uri-list', fileUri);
+                e.dataTransfer.setData('text/plain', localPath);
+
+                card.classList.add('dragging');
+                updateStatus(`Drop onto Composition or Timeline to insert...`, 'info');
+            }
+        } catch (dragErr) {
+            console.warn("Dragstart error:", dragErr);
+        }
+    });
+
+    card.addEventListener('dragend', () => {
+        card.classList.remove('dragging');
+    });
+}
+
+// Real-Time Local Folder File Watcher
+let activeFolderWatcher = null;
+let folderWatchDebounce = null;
+function watchActiveFolder(folderPath) {
+    if (activeFolderWatcher) {
+        try { activeFolderWatcher.close(); } catch (_) {}
+        activeFolderWatcher = null;
+    }
+    if (!folderPath || !fs || !fs.existsSync(folderPath)) return;
+    try {
+        activeFolderWatcher = fs.watch(folderPath, (eventType, filename) => {
+            clearTimeout(folderWatchDebounce);
+            folderWatchDebounce = setTimeout(() => {
+                if (currentTab === 'folders' && currentCategory !== 'custom') {
+                    renderFolders();
+                }
+            }, 300);
+        });
+    } catch (watchErr) {
+        console.warn("Folder watch warning:", watchErr);
+    }
+}
+
 // Recents Management
 const RECENT_STORAGE_KEY = 'recent_studio_assets';
 function getRecents() {
@@ -471,6 +602,13 @@ function createEmojiCard(emoji) {
         });
     });
 
+    setupCardDrag(card, {
+        type: 'emoji',
+        emojiChar: emojiChar,
+        name: emoji.name,
+        style: currentStyle
+    });
+
     return card;
 }
 
@@ -616,6 +754,14 @@ async function loadMoreIcons() {
                 });
             });
 
+            setupCardDrag(card, {
+                type: 'icon',
+                iconFullName: iconFullName,
+                name: iconFullName.split(':')[1] || iconFullName,
+                color: quickColor,
+                strokeWidth: 2
+            });
+
             assetGrid.appendChild(card);
         });
 
@@ -646,9 +792,16 @@ function renderFolders() {
     noResults.style.display = 'none';
 
     const select = document.getElementById('linked-folder-select');
-    const folderPath = select ? select.value : '';
+    let folderPath = select ? select.value : '';
 
-    if (!folderPath) {
+    // If selected folder was deleted from disk, automatically prune it
+    if (folderPath && fs && !fs.existsSync(folderPath)) {
+        AssetManager.removeLinkedFolder(folderPath);
+        updateFolderDropdown();
+        folderPath = select ? select.value : '';
+    }
+
+    if (!folderPath || (fs && !fs.existsSync(folderPath))) {
         assetGrid.innerHTML = `
             <div style="grid-column: 1 / -1; text-align: center; padding: 48px 14px; color: var(--text-muted);">
                 <div style="font-size: 38px; margin-bottom: 10px;">📁</div>
@@ -667,6 +820,9 @@ function renderFolders() {
         updateStatus("No local folder selected.");
         return;
     }
+
+    // Real-time file system watcher: auto-detects new or removed files from Explorer
+    watchActiveFolder(folderPath);
 
     let items = AssetManager.scanFolder(folderPath);
 
@@ -696,7 +852,7 @@ function renderFolders() {
     items.forEach(item => {
         const card = document.createElement('div');
         card.className = 'asset-card';
-        card.title = item.name;
+        card.title = `${item.name} — Drag to Comp/Timeline or Click to Insert`;
 
         const img = document.createElement('img');
         img.src = `file://${item.fullPath.replace(/\\/g, '/')}`;
@@ -736,6 +892,8 @@ function renderFolders() {
                 ext: item.ext
             });
         });
+
+        setupCardDrag(card, item);
 
         assetGrid.appendChild(card);
     });
@@ -827,6 +985,8 @@ function renderPlaylists() {
             openCustomizer(item);
         });
 
+        setupCardDrag(card, item);
+
         assetGrid.appendChild(card);
     });
 }
@@ -869,9 +1029,16 @@ function renderRecents() {
     }
 
     recents.forEach(item => {
+        // If local/clipboard item was deleted from disk, automatically prune it
+        if ((item.type === 'local' || item.type === 'clipboard') && item.fullPath && fs && !fs.existsSync(item.fullPath)) {
+            const key = item.id || item.iconFullName || item.fullPath || item.name;
+            removeFromRecent(key);
+            return;
+        }
+
         const card = document.createElement('div');
         card.className = 'asset-card';
-        card.title = item.name || 'Recent Item';
+        card.title = `${item.name || 'Recent Item'} — Drag to Comp/Timeline or Click to Customize`;
 
         if (item.type === 'emoji') {
             const img = document.createElement('img');
@@ -907,6 +1074,32 @@ function renderRecents() {
             }
         }
 
+        // Quick Save to Linked Folder button
+        const saveFolderBtn = document.createElement('button');
+        saveFolderBtn.className = 'asset-folder-save-btn';
+        saveFolderBtn.title = 'Save into Linked Local Folder';
+        saveFolderBtn.textContent = '📁';
+        saveFolderBtn.addEventListener('click', async (e) => {
+            e.stopPropagation();
+            const folders = AssetManager.getLinkedFolders();
+            if (!folders || folders.length === 0) {
+                alert("No local folder linked yet! Go to 'Folders' tab -> '+ Link Folder' to select your folder first.");
+                return;
+            }
+            const targetFolder = folders[0];
+            try {
+                const dest = await AssetManager.saveAssetToFolder(targetFolder, item, {
+                    color: item.color || '#ffffff',
+                    strokeWidth: item.strokeWidth || 2,
+                    style: item.style || currentStyle
+                });
+                updateStatus(`Saved "${path ? path.basename(dest) : item.name}" to ${path ? path.basename(targetFolder) : 'folder'}!`, 'success');
+            } catch (saveErr) {
+                alert("Save to folder failed: " + saveErr.message);
+            }
+        });
+        card.appendChild(saveFolderBtn);
+
         // Delete from recents button
         const delBtn = document.createElement('button');
         delBtn.className = 'asset-delete-btn';
@@ -923,6 +1116,8 @@ function renderRecents() {
         card.addEventListener('click', () => {
             openCustomizer(item);
         });
+
+        setupCardDrag(card, item);
 
         assetGrid.appendChild(card);
     });
@@ -1640,6 +1835,23 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    // Refresh Folder Button
+    const btnRefreshFolder = document.getElementById('btn-refresh-folder');
+    if (btnRefreshFolder) {
+        btnRefreshFolder.addEventListener('click', () => {
+            updateFolderDropdown();
+            renderFolders();
+            updateStatus("Folder refreshed from disk.", 'info');
+        });
+    }
+
+    // Auto-refresh when returning to panel window
+    window.addEventListener('focus', () => {
+        if (currentTab === 'folders') {
+            renderFolders();
+        }
+    });
+
     // Populate Playlists dropdown
     const plSelect = document.getElementById('playlist-select');
     function updatePlaylistDropdown() {
@@ -2007,26 +2219,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 const color = (modalColorHex && modalColorHex.value) || '#ffffff';
                 const strokeInput = document.getElementById('modal-stroke-input');
                 const strokeWidth = (strokeInput && parseFloat(strokeInput.value)) || 2;
-                const cleanName = (item.name || 'asset').replace(/[^a-zA-Z0-9_-]/g, '_');
 
-                if (item.type === 'icon') {
-                    const svgText = await IconEngine.fetchSvgContent(item.iconFullName, {
-                        color: color,
-                        strokeWidth: strokeWidth
-                    });
-                    const destFile = path.join(targetFolder, `${cleanName}.svg`);
-                    fs.writeFileSync(destFile, svgText, 'utf8');
-                    alert(`Saved vector icon "${cleanName}.svg" to ${path.basename(targetFolder)}!`);
-                } else if (item.type === 'emoji') {
-                    const dlUrl = getEmojiDownloadUrl(item.emojiChar, currentStyle, 'png');
-                    const destFile = path.join(targetFolder, `emoji_${cleanName}.png`);
-                    await Net.downloadFile(dlUrl, destFile);
-                    alert(`Saved emoji "${cleanName}.png" to ${path.basename(targetFolder)}!`);
-                } else if (item.type === 'local' || item.type === 'clipboard') {
-                    const destFile = path.join(targetFolder, path.basename(item.fullPath));
-                    fs.copyFileSync(item.fullPath, destFile);
-                    alert(`Saved "${path.basename(destFile)}" to ${path.basename(targetFolder)}!`);
-                }
+                const destFile = await AssetManager.saveAssetToFolder(targetFolder, item, {
+                    color: color,
+                    strokeWidth: strokeWidth,
+                    style: currentStyle
+                });
+
+                updateStatus(`Saved "${path ? path.basename(destFile) : item.name}" to ${path ? path.basename(targetFolder) : 'folder'}!`, 'success');
+                alert(`Saved "${path ? path.basename(destFile) : item.name}" to folder "${path ? path.basename(targetFolder) : targetFolder}"!`);
 
                 if (currentTab === 'folders' && currentCategory !== 'custom') {
                     renderFolders();

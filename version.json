@@ -1,8 +1,8 @@
 {
-  "version": "2.8.1",
+  "version": "2.8.2",
   "name": "Emoji & Icon Studio by Kairesh",
   "zxpUrl": "https://raw.githubusercontent.com/Kairesh/Emoji-Library-Updates/main/Emoji-Library.zxp",
   "backupZxpUrl": "https://cdn.jsdelivr.net/gh/Kairesh/Emoji-Library-Updates@main/Emoji-Library.zxp",
   "updateUrl": "https://github.com/Kairesh/Emoji-Library-Updates/releases/latest",
-  "releaseNotes": "v2.8.1 Premiere Pro Timeline & Bin Insertion Fix!\n• Fixed Premiere Pro icon import: now reliably imports into 'Icons' bin and places on active timeline track at playhead\n• Bulletproof item detection avoiding Premiere sub-bin import bugs\n• Error reporting fixes: no more false success messages when host script fails\n• Update modal popup works smoothly both automatically and via Check for Updates button"
+  "releaseNotes": "v2.8.2 Drag & Drop, Real-time Folder Sync & Disk Watching!\n• Native Drag & Drop: Drag any emoji, icon, or local file directly onto After Effects Composition viewer or Premiere Pro timeline!\n• Real-Time Folder Sync: Adding, deleting, or renaming files in your local folder in Windows Explorer instantly updates the plugin in real-time!\n• Smart Local Folder Persistence: Adding any icon from recents or library writes the real file into your selected folder so you keep your assets forever even if removed from the project!\n• Dead Folder & File Pruning: If a folder or file is deleted from disk, the plugin cleanly removes it without showing broken items!\n• Quick Save to Folder button (📁) on Recents cards and manual 🔄 Refresh button in Folders toolbar"
 }

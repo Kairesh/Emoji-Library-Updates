@@ -173,9 +173,13 @@ const PluginUpdater = (function () {
         }
 
         if (btnInstall) {
-            btnInstall.textContent = isNewer ? "Update Now" : "Reinstall v" + data.version;
+            btnInstall.textContent = isNewer ? "Update Now" : "Great, Close";
             btnInstall.disabled = false;
             btnInstall.onclick = async () => {
+                if (!isNewer) {
+                    modal.style.display = 'none';
+                    return;
+                }
                 btnInstall.disabled = true;
                 await performUpdate(data);
             };
@@ -199,12 +203,12 @@ const PluginUpdater = (function () {
             const candidateUrls = [
                 data.zxpUrl,
                 data.backupZxpUrl,
-                `https://cdn.jsdelivr.net/gh/Kairesh/Emoji-Library-Updates@main/Emoji-Library-v${data.version}.zxp`,
-                `https://raw.githubusercontent.com/Kairesh/Emoji-Library-Updates/main/Emoji-Library-v${data.version}.zxp`
+                `https://raw.githubusercontent.com/Kairesh/Emoji-Library-Updates/main/Emoji-Library.zxp`,
+                `https://cdn.jsdelivr.net/gh/Kairesh/Emoji-Library-Updates@main/Emoji-Library.zxp`
             ].filter(Boolean);
 
-            const tempZxp = path.join(os.tmpdir(), `Emoji_Library_v${data.version}.zxp`);
-            const tempZip = path.join(os.tmpdir(), `Emoji_Library_v${data.version}.zip`);
+            const tempZxp = path.join(os.tmpdir(), `Emoji_Library.zxp`);
+            const tempZip = path.join(os.tmpdir(), `Emoji_Library.zip`);
 
             let downloadSuccess = false;
             let lastErr = null;

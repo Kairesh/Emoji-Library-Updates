@@ -202,19 +202,19 @@ var EMOJI_HOST = {
                 } catch (sepErr) {}
             }
             
-            // Scale to match target size (with robust fallbacks for SVGs that report 0 width)
+            // Scale to match target size preserving aspect ratio (never distort landscape/portrait footage)
             try {
                 var w = footageItem.width || layer.source.width || 128;
                 var h = footageItem.height || layer.source.height || 128;
                 if (w <= 0) w = 128;
                 if (h <= 0) h = 128;
 
-                if (targetSize) {
-                    var scaleX = (targetSize / w) * 100;
-                    var scaleY = (targetSize / h) * 100;
+                if (targetSize && targetSize > 0) {
+                    var maxDim = Math.max(w, h);
+                    var uniformScale = (targetSize / maxDim) * 100;
                     var scaleProp = layer.property("ADBE Transform Group").property("ADBE Scale");
                     if (scaleProp) {
-                        scaleProp.setValue([scaleX, scaleY, 100]);
+                        scaleProp.setValue([uniformScale, uniformScale, 100]);
                     }
                 }
             } catch (scaleErr) {}

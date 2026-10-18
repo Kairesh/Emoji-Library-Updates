@@ -57,10 +57,9 @@
                     </div>
                 </div>
 
-                <!-- Main Action Search Button -->
+                <!-- Main Action Search Button (Compact Icon-Only) -->
                 <button id="main-search-btn" class="search-action-btn" title="Search">
-                    <svg width="12" height="12" viewBox="0 0 24 24"><path fill="currentColor" d="M9.5 3a6.5 6.5 0 0 1 5.25 10.33l4.96 4.96a.75.75 0 0 1-1.06 1.06l-4.96-4.96A6.5 6.5 0 1 1 9.5 3zm0 1.5a5 5 0 1 0 0 10 5 5 0 0 0 0-10z"/></svg>
-                    <span>Search</span>
+                    <svg width="13" height="13" viewBox="0 0 24 24"><path fill="currentColor" d="M9.5 3a6.5 6.5 0 0 1 5.25 10.33l4.96 4.96a.75.75 0 0 1-1.06 1.06l-4.96-4.96A6.5 6.5 0 1 1 9.5 3zm0 1.5a5 5 0 1 0 0 10 5 5 0 0 0 0-10z"/></svg>
                 </button>
             </div>
 
@@ -115,123 +114,6 @@
                 </div>
             </div>
 
-            <!-- Settings Drawer (Hidden by default) -->
-            <div class="settings-drawer" id="settings-drawer" style="display: none;">
-                <div class="drawer-header">
-                    <h3>Studio Settings & Guides</h3>
-                    <button id="close-settings" class="drawer-close-btn">✕</button>
-                </div>
-
-                <!-- Host Compatibility Guide -->
-                <div class="setting-card">
-                    <div class="card-title">⚡ Host App Compatibility Guide</div>
-                    <div class="compat-table">
-                        <div class="compat-row">
-                            <span class="compat-name">After Effects (Ae):</span>
-                            <span class="compat-desc">Supports <b>Native Vector Shapes (SVG)</b>, continuous rasterization, shape stroke/fill, 3D Fluent PNG, and Live Text.</span>
-                        </div>
-                        <div class="compat-row">
-                            <span class="compat-name">Premiere Pro (Pr):</span>
-                            <span class="compat-desc">Premiere has no native SVG engine. All icons & emojis are <b>auto-rasterized to ultra-crisp 1024px PNG</b> on-the-fly and automatically placed at playhead!</span>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Insert Mode & Preferences -->
-                <div class="setting-item">
-                    <label>Insert Mode (AE)</label>
-                    <div class="toggle-group" id="insert-mode-toggle">
-                        <button class="toggle-btn active" data-mode="shape">Shape Layer</button>
-                        <button class="toggle-btn" data-mode="text">Text Layer</button>
-                    </div>
-                </div>
-
-                <div class="setting-item" id="shape-format-container">
-                    <label>Vector Format</label>
-                    <div class="toggle-group" id="shape-format-toggle">
-                        <button class="toggle-btn active" data-format="svg">Vector (SVG)</button>
-                        <button class="toggle-btn" data-format="png">Image (PNG)</button>
-                    </div>
-                </div>
-
-                <div class="setting-item">
-                    <label>Emoji Artwork Style</label>
-                    <select id="style-select" class="dropdown-styled">
-                        <option value="apple">Apple (iOS style)</option>
-                        <option value="google" selected>Google (Android style)</option>
-                        <option value="twitter">Twemoji (Flat vector style)</option>
-                        <option value="microsoft">Microsoft (3D Fluent style)</option>
-                    </select>
-                </div>
-
-                <div class="setting-item" id="size-control-group">
-                    <div class="label-row">
-                        <label for="size-slider">Default Insert Size</label>
-                        <div class="num-unit-wrap">
-                            <input type="number" id="setting-size-input" class="num-box-styled" min="16" max="2048" step="16" value="256" />
-                            <span class="unit-tag">px</span>
-                        </div>
-                    </div>
-                    <input type="range" id="size-slider" min="64" max="1024" step="64" value="256">
-                </div>
-
-                <div class="setting-item" id="stroke-control-group">
-                    <div class="label-row">
-                        <label for="setting-stroke-slider">Default Stroke Width</label>
-                        <div class="num-unit-wrap">
-                            <input type="number" id="setting-stroke-input" class="num-box-styled" min="0.5" max="10" step="0.25" value="2" />
-                            <span class="unit-tag">px</span>
-                        </div>
-                    </div>
-                    <input type="range" id="setting-stroke-slider" min="0.5" max="6" step="0.25" value="2">
-                </div>
-
-                <!-- API Keys & Custom CDN Guide -->
-                <div class="setting-card">
-                    <div style="display: flex; justify-content: space-between; align-items: center;">
-                        <div class="card-title">🔑 Zero API Keys Required</div>
-                        <button type="button" id="btn-open-api-guide" class="guide-pill-btn">📖 Setup Guide</button>
-                    </div>
-                    <p class="card-hint">
-                        All 200,000+ icons and emojis are <b>100% free and unlocked</b> directly in the Icons tab dropdown (Lucide, Phosphor, Brands, Motion, etc.). <b>No API key is required</b> to use any library.
-                    </p>
-                    <p class="card-hint" style="margin-top: 4px;">
-                        Optional: Only configure below if you want higher custom rate limits or run a private server:
-                    </p>
-                    <div class="input-field-group">
-                        <label>Custom Self-Hosted Icon API (Optional)</label>
-                        <input type="text" id="setting-iconify-api" placeholder="Default: Public Open CDN" class="text-input-styled" />
-                    </div>
-                    <div class="input-field-group">
-                        <div style="display: flex; justify-content: space-between; align-items: center;">
-                            <label>GitHub Personal Access Token (Optional)</label>
-                            <a href="#" id="link-get-gh-token" class="text-link" title="Open GitHub token creation page">Get free token ↗</a>
-                        </div>
-                        <input type="password" id="setting-github-token" placeholder="Optional token for custom rate limits" class="text-input-styled" />
-                    </div>
-                    <button id="btn-save-keys" class="primary-btn" style="width: 100%; margin-top: 8px;">Save Settings</button>
-                </div>
-
-                <!-- Project Asset Storage -->
-                <div class="setting-item">
-                    <div class="label-row">
-                        <label>Assets Storage</label>
-                        <button id="open-assets-btn" class="icon-btn-storage" title="Open persistent assets folder">📂 Open Folder</button>
-                    </div>
-                    <div class="storage-path-display" id="storage-path-display" title="Persistent safe location on your computer - never gets deleted">Documents/Emoji Library Assets</div>
-                </div>
-
-                <!-- Updates Section -->
-                <div class="setting-card">
-                    <div class="card-title">🔄 Software Updates</div>
-                    <div class="update-info-row">
-                        <span id="settings-app-version-badge" class="badge">v2.1.0</span>
-                        <button id="btn-check-updates" class="secondary-btn">Check for Updates</button>
-                    </div>
-                    <div id="settings-update-status" class="update-status-label"></div>
-                </div>
-            </div>
-
             <!-- Composer Area (for Text Layer mode) -->
             <div class="composer-container" id="composer-container" style="display: none;">
                 <textarea id="composer-textarea" placeholder="Type text here & click emojis below to add..."></textarea>
@@ -240,6 +122,113 @@
                 </div>
             </div>
         </header>
+
+        <!-- Settings Drawer (Full AMOLED Modal Overlay - Never Trapped Behind Grid) -->
+        <div class="settings-drawer" id="settings-drawer" style="display: none;">
+            <div class="drawer-header">
+                <h3>Studio Settings & Guides</h3>
+                <button id="close-settings" class="drawer-close-btn">✕</button>
+            </div>
+
+            <!-- Host Compatibility Guide -->
+            <div class="setting-card">
+                <div class="card-title">⚡ Host App Compatibility Guide</div>
+                <div class="compat-table">
+                    <div class="compat-row">
+                        <span class="compat-name">After Effects (Ae):</span>
+                        <span class="compat-desc">Supports <b>Native Vector Shapes (SVG)</b>, continuous rasterization, shape stroke/fill, 3D Fluent PNG, and Live Text.</span>
+                    </div>
+                    <div class="compat-row">
+                        <span class="compat-name">Premiere Pro (Pr):</span>
+                        <span class="compat-desc">Premiere has no native SVG engine. All icons & emojis are <b>auto-rasterized to ultra-crisp 1024px PNG</b> on-the-fly and automatically placed at playhead!</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Insert Mode & Preferences -->
+            <div class="setting-item">
+                <label>Insert Mode (AE)</label>
+                <div class="toggle-group" id="insert-mode-toggle">
+                    <button class="toggle-btn active" data-mode="shape">Shape Layer</button>
+                    <button class="toggle-btn" data-mode="text">Text Layer</button>
+                </div>
+            </div>
+
+            <div class="setting-item" id="shape-format-container">
+                <label>Vector Format</label>
+                <div class="toggle-group" id="shape-format-toggle">
+                    <button class="toggle-btn active" data-format="svg">Vector (SVG)</button>
+                    <button class="toggle-btn" data-format="png">Image (PNG)</button>
+                </div>
+            </div>
+
+            <div class="setting-item" id="size-control-group">
+                <div class="label-row">
+                    <label for="size-slider">Default Insert Size</label>
+                    <div class="num-unit-wrap">
+                        <input type="number" id="setting-size-input" class="num-box-styled" min="16" max="2048" step="16" value="256" />
+                        <span class="unit-tag">px</span>
+                    </div>
+                </div>
+                <input type="range" id="size-slider" min="64" max="1024" step="64" value="256">
+            </div>
+
+            <div class="setting-item" id="stroke-control-group">
+                <div class="label-row">
+                    <label for="setting-stroke-slider">Default Stroke Width</label>
+                    <div class="num-unit-wrap">
+                        <input type="number" id="setting-stroke-input" class="num-box-styled" min="0.5" max="10" step="0.25" value="2" />
+                        <span class="unit-tag">px</span>
+                    </div>
+                </div>
+                <input type="range" id="setting-stroke-slider" min="0.5" max="6" step="0.25" value="2">
+            </div>
+
+            <!-- API Keys & Custom CDN Guide -->
+            <div class="setting-card">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <div class="card-title">🔑 Zero API Keys Required</div>
+                    <button type="button" id="btn-open-api-guide" class="guide-pill-btn">📖 Setup Guide</button>
+                </div>
+                <p class="card-hint">
+                    All 200,000+ icons and emojis are <b>100% free and unlocked</b> directly in the Icons tab dropdown (Lucide, Phosphor, Brands, Motion, etc.). <b>No API key is required</b> to use any library.
+                </p>
+                <p class="card-hint" style="margin-top: 4px;">
+                    Optional: Only configure below if you want higher custom rate limits or run a private server:
+                </p>
+                <div class="input-field-group">
+                    <label>Custom Self-Hosted Icon API (Optional)</label>
+                    <input type="text" id="setting-iconify-api" placeholder="Default: Public Open CDN" class="text-input-styled" />
+                </div>
+                <div class="input-field-group">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <label>GitHub Personal Access Token (Optional)</label>
+                        <a href="#" id="link-get-gh-token" class="text-link" title="Open GitHub token creation page">Get free token ↗</a>
+                    </div>
+                    <input type="password" id="setting-github-token" placeholder="Optional token for custom rate limits" class="text-input-styled" />
+                </div>
+                <button id="btn-save-keys" class="primary-btn" style="width: 100%; margin-top: 8px;">Save Settings</button>
+            </div>
+
+            <!-- Project Asset Storage -->
+            <div class="setting-item">
+                <div class="label-row">
+                    <label>Assets Storage</label>
+                    <button id="open-assets-btn" class="icon-btn-storage" title="Open persistent assets folder">📂 Open Folder</button>
+                </div>
+                <div class="storage-path-display" id="storage-path-display" title="Persistent safe location on your computer - never gets deleted">Documents/Emoji Library Assets</div>
+            </div>
+
+            <!-- Updates Section -->
+            <div class="setting-card">
+                <div class="card-title">🔄 Software Updates</div>
+                <div class="update-info-row">
+                    <span id="settings-app-version-badge" class="badge">v2.4.0</span>
+                    <button id="btn-check-updates" class="secondary-btn">Check for Updates</button>
+                </div>
+                <div id="settings-update-status" class="update-status-label"></div>
+            </div>
+        </div>
 
         <!-- Main Dynamic Grid -->
         <main class="emoji-container">

@@ -1,8 +1,8 @@
 {
-  "version": "2.3.0",
+  "version": "2.4.0",
   "name": "Emoji & Icon Studio by Kairesh",
-  "zxpUrl": "https://raw.githubusercontent.com/Kairesh/Emoji-Library-Updates/main/Emoji-Library-v2.3.0.zxp",
-  "backupZxpUrl": "https://cdn.jsdelivr.net/gh/Kairesh/Emoji-Library-Updates@main/Emoji-Library-v2.3.0.zxp",
+  "zxpUrl": "https://raw.githubusercontent.com/Kairesh/Emoji-Library-Updates/main/Emoji-Library.zxp",
+  "backupZxpUrl": "https://cdn.jsdelivr.net/gh/Kairesh/Emoji-Library-Updates@main/Emoji-Library.zxp",
   "updateUrl": "https://github.com/Kairesh/Emoji-Library-Updates/releases/latest",
-  "releaseNotes": "v2.3.0 MediaFetch AMOLED Dark Studio & Performance Update!\n• Full AMOLED true dark theme with Apple HIG typography & deep contrast\n• Official category pills & floating popover menu tailored to each icon library\n• Native smooth Adobe folder picker with zero OS prompts or shell popups\n• Precision slider + manual number typing for stroke width and size\n• Ultra-low RAM optimization: hardware CSS containment & DOM virtualization for 4GB-8GB devices"
+  "releaseNotes": "v2.4.0 Studio Polish & Quality Update!\n• Fixed Settings drawer full screen overlay (never trapped behind grid)\n• Fixed imported GIF & media aspect ratio squishing (true dimensions preserved)\n• Clean compact search bar with icon-only action button and responsive auto-scaling\n• High-res Google Android, Twemoji, Apple and Microsoft emoji rendering\n• Fixed skin-tone tofu boxes and blank cards (only human emojis accept tone modifiers)\n• Single-item delete button in Folders and Playlists\n• Unified single Emoji-Library.zxp package (no versioned file duplicates)"
 }

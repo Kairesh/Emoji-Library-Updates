@@ -359,38 +359,31 @@ function createEmojiCard(emoji) {
     card.title = emoji.name;
 
     const rawChar = emoji.char || emoji.emoji || '';
-    const emojiChar = applySkinTone(rawChar, currentTone);
+    const emojiChar = applySkinTone(rawChar, currentTone, emoji);
 
-    if (currentStyle === 'apple' || currentStyle === 'microsoft') {
-        const img = document.createElement('img');
-        img.alt = emoji.name;
-        img.loading = "lazy";
-        img.src = getEmojiDownloadUrl(emojiChar, currentStyle, 'png');
-        img.onerror = function() {
-            if (this.dataset.fallback !== 'apple') {
-                this.dataset.fallback = 'apple';
-                this.src = `https://emojicdn.elk.sh/${encodeURIComponent(emojiChar)}?style=apple`;
-            } else if (this.dataset.fallback !== 'google') {
-                this.dataset.fallback = 'google';
-                this.src = `https://emojicdn.elk.sh/${encodeURIComponent(emojiChar)}?style=google`;
-            } else {
-                const parent = this.parentElement;
-                if (parent) {
-                    parent.innerHTML = '';
-                    const span = document.createElement('span');
-                    span.className = 'card-emoji-text';
-                    span.textContent = emojiChar;
-                    parent.appendChild(span);
-                }
+    const img = document.createElement('img');
+    img.alt = emoji.name;
+    img.loading = "lazy";
+    img.src = getEmojiDownloadUrl(emojiChar, currentStyle, 'png');
+    img.onerror = function() {
+        if (this.dataset.fallback !== 'apple' && currentStyle !== 'apple') {
+            this.dataset.fallback = 'apple';
+            this.src = `https://emojicdn.elk.sh/${encodeURIComponent(emojiChar)}?style=apple`;
+        } else if (this.dataset.fallback !== 'google' && currentStyle !== 'google') {
+            this.dataset.fallback = 'google';
+            this.src = `https://emojicdn.elk.sh/${encodeURIComponent(emojiChar)}?style=google`;
+        } else {
+            const parent = this.parentElement;
+            if (parent) {
+                parent.innerHTML = '';
+                const span = document.createElement('span');
+                span.className = 'card-emoji-text';
+                span.textContent = emojiChar;
+                parent.appendChild(span);
             }
-        };
-        card.appendChild(img);
-    } else {
-        const span = document.createElement('span');
-        span.className = 'card-emoji-text';
-        span.textContent = emojiChar;
-        card.appendChild(span);
-    }
+        }
+    };
+    card.appendChild(img);
 
     card.addEventListener('click', () => {
         openCustomizer({
@@ -404,8 +397,11 @@ function createEmojiCard(emoji) {
     return card;
 }
 
-function applySkinTone(baseEmoji, tone) {
+function applySkinTone(baseEmoji, tone, emojiObj) {
     if (!tone) return baseEmoji;
+    // Strictly prevent tone modifiers from being attached to smileys, objects, animals, etc.
+    // Unicode tone modifiers only apply to emojis that explicitly support skin tones
+    if (emojiObj && !emojiObj.skin_tone_support) return baseEmoji;
     return baseEmoji + tone;
 }
 
@@ -422,9 +418,17 @@ function getEmojiDownloadUrl(emojiChar, style, format) {
     if (style === 'microsoft') {
         return `https://cdn.jsdelivr.net/gh/shuding/fluentui-emoji-unicode/assets/${hex}_3d.png`;
     }
-    if (format === 'svg') {
-        // Twemoji provides pure vector SVGs that convert cleanly to AE outlines without complex filters
-        return `https://cdn.jsdelivr.net/gh/jdecked/twemoji@latest/assets/svg/${hex}.svg`;
+    if (style === 'twitter') {
+        if (format === 'svg') {
+            return `https://cdn.jsdelivr.net/gh/jdecked/twemoji@latest/assets/svg/${hex}.svg`;
+        }
+        return `https://cdn.jsdelivr.net/gh/jdecked/twemoji@latest/assets/72x72/${hex}.png`;
+    }
+    if (style === 'google') {
+        return `https://emojicdn.elk.sh/${encodeURIComponent(emojiChar)}?style=google`;
+    }
+    if (style === 'apple') {
+        return `https://emojicdn.elk.sh/${encodeURIComponent(emojiChar)}?style=apple`;
     }
     return `https://emojicdn.elk.sh/${encodeURIComponent(emojiChar)}?style=${style}`;
 }
@@ -626,6 +630,27 @@ function renderFolders() {
         badge.textContent = item.ext.replace('.', '');
         card.appendChild(badge);
 
+        // Individual item delete button
+        const delBtn = document.createElement('button');
+        delBtn.className = 'asset-delete-btn';
+        delBtn.title = `Delete ${item.fileName}`;
+        delBtn.textContent = '🗑️';
+        delBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (confirm(`Permanently delete "${item.fileName}" from disk?`)) {
+                try {
+                    if (fs && fs.existsSync(item.fullPath)) {
+                        fs.unlinkSync(item.fullPath);
+                    }
+                    renderFolders();
+                    updateStatus(`Deleted ${item.fileName}`, 'info');
+                } catch (delErr) {
+                    alert(`Failed to delete: ${delErr.message}`);
+                }
+            }
+        });
+        card.appendChild(delBtn);
+
         card.addEventListener('click', () => {
             openCustomizer({
                 type: 'local',
@@ -669,10 +694,19 @@ function renderPlaylists() {
         card.title = item.name;
 
         if (item.type === 'emoji') {
-            const span = document.createElement('span');
-            span.className = 'card-emoji-text';
-            span.textContent = item.emojiChar;
-            card.appendChild(span);
+            const img = document.createElement('img');
+            img.src = getEmojiDownloadUrl(item.emojiChar, currentStyle, 'png');
+            img.onerror = function() {
+                const parent = this.parentElement;
+                if (parent) {
+                    parent.innerHTML = '';
+                    const span = document.createElement('span');
+                    span.className = 'card-emoji-text';
+                    span.textContent = item.emojiChar;
+                    parent.appendChild(span);
+                }
+            };
+            card.appendChild(img);
         } else if (item.type === 'icon') {
             const iconContainer = document.createElement('div');
             iconContainer.style.width = '28px';
@@ -686,6 +720,31 @@ function renderPlaylists() {
             img.src = `file://${item.fullPath.replace(/\\/g, '/')}`;
             card.appendChild(img);
         }
+
+        // Remove item from playlist button
+        const delBtn = document.createElement('button');
+        delBtn.className = 'asset-delete-btn';
+        delBtn.title = `Remove from playlist`;
+        delBtn.textContent = '✕';
+        delBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const itemId = item.id || item.iconFullName || item.emojiChar || item.name;
+            AssetManager.removeFromPlaylist(playlistId, itemId);
+            const plSelect = document.getElementById('playlist-select');
+            if (plSelect) {
+                const currentVal = plSelect.value;
+                plSelect.innerHTML = '';
+                AssetManager.getPlaylists().forEach(pl => {
+                    const opt = document.createElement('option');
+                    opt.value = pl.id;
+                    opt.textContent = `${pl.name} (${pl.items ? pl.items.length : 0})`;
+                    plSelect.appendChild(opt);
+                });
+                plSelect.value = currentVal;
+            }
+            renderPlaylists();
+        });
+        card.appendChild(delBtn);
 
         card.addEventListener('click', () => {
             openCustomizer(item);
@@ -756,24 +815,26 @@ async function updateCustomizerPreview() {
     const strokeWidth = (strokeInput && parseFloat(strokeInput.value)) || (modalStrokeSlider && parseFloat(modalStrokeSlider.value)) || 2;
 
     if (activeCustomizerItem.type === 'emoji') {
-        if (currentStyle === 'apple' || currentStyle === 'microsoft') {
-            const img = document.createElement('img');
-            img.src = getEmojiDownloadUrl(activeCustomizerItem.emojiChar, currentStyle, 'png');
-            img.onerror = function() {
-                if (this.dataset.fallback !== 'apple') {
-                    this.dataset.fallback = 'apple';
-                    this.src = `https://emojicdn.elk.sh/${encodeURIComponent(activeCustomizerItem.emojiChar)}?style=apple`;
-                }
-            };
-            img.style.maxWidth = '100%';
-            img.style.maxHeight = '100%';
-            previewRenderBox.appendChild(img);
-        } else {
-            const span = document.createElement('span');
-            span.style.fontSize = '50px';
-            span.textContent = activeCustomizerItem.emojiChar;
-            previewRenderBox.appendChild(span);
-        }
+        const img = document.createElement('img');
+        img.src = getEmojiDownloadUrl(activeCustomizerItem.emojiChar, currentStyle, 'png');
+        img.onerror = function() {
+            if (this.dataset.fallback !== 'apple' && currentStyle !== 'apple') {
+                this.dataset.fallback = 'apple';
+                this.src = `https://emojicdn.elk.sh/${encodeURIComponent(activeCustomizerItem.emojiChar)}?style=apple`;
+            } else if (this.dataset.fallback !== 'google' && currentStyle !== 'google') {
+                this.dataset.fallback = 'google';
+                this.src = `https://emojicdn.elk.sh/${encodeURIComponent(activeCustomizerItem.emojiChar)}?style=google`;
+            } else {
+                previewRenderBox.innerHTML = '';
+                const span = document.createElement('span');
+                span.style.fontSize = '50px';
+                span.textContent = activeCustomizerItem.emojiChar;
+                previewRenderBox.appendChild(span);
+            }
+        };
+        img.style.maxWidth = '100%';
+        img.style.maxHeight = '100%';
+        previewRenderBox.appendChild(img);
     } else if (activeCustomizerItem.type === 'icon') {
         try {
             const svgContent = await IconEngine.fetchSvgContent(activeCustomizerItem.iconFullName, {
@@ -977,14 +1038,23 @@ document.addEventListener('DOMContentLoaded', () => {
     loadJSX();
     initTabs();
 
-    // Populate Icon Library dropdown
+    // Populate Icon Library dropdown (Compact Short Labels)
     try {
         const libSelect = document.getElementById('icon-library-select');
         if (libSelect) {
             IconEngine.collections.forEach(col => {
                 const opt = document.createElement('option');
                 opt.value = col.id;
-                opt.textContent = `${col.name} ${col.count ? '(' + col.count + ')' : ''}`;
+                let shortName = col.name;
+                if (col.id === 'all') shortName = 'All';
+                else if (col.id === 'simple-icons') shortName = 'Brands';
+                else if (col.id === 'flagpack') shortName = 'Flags';
+                else if (col.id === 'line-md') shortName = 'Line MD';
+                else if (col.id === 'pixelarticons') shortName = 'Pixel';
+                else if (col.id === 'akar-icons') shortName = 'Akar';
+                else if (col.id === 'css.gg') shortName = 'CSS.gg';
+                opt.textContent = shortName;
+                opt.title = `${col.name} ${col.count ? '(' + col.count + ')' : ''}`;
                 libSelect.appendChild(opt);
             });
 

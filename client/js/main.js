@@ -6,14 +6,69 @@ const cp = (typeof window !== "undefined" && window.require) ? window.require('c
 
 const csInterface = new CSInterface();
 
-// Active Host Application detection (Immediate synchronous check)
+// Active Host Application detection (Dual-layer check: CEP HostEnvironment + ExtendScript)
 let hostApp = 'UNKNOWN';
-try {
-    if (typeof csInterface !== "undefined" && typeof csInterface.getHostEnvironment === 'function') {
-        const env = csInterface.getHostEnvironment();
-        if (env && env.appId) hostApp = env.appId;
+
+function isHostPremiere() {
+    if (hostApp === 'PPRO') return true;
+    if (hostApp === 'AEFT') return false;
+    try {
+        if (typeof window !== "undefined" && window.__adobe_cep__ && typeof window.__adobe_cep__.getHostEnvironment === 'function') {
+            const raw = JSON.parse(window.__adobe_cep__.getHostEnvironment());
+            if (raw) {
+                if (raw.appId === 'PPRO' || (raw.appName && raw.appName.toLowerCase().indexOf('premiere') !== -1)) {
+                    hostApp = 'PPRO';
+                    return true;
+                }
+                if (raw.appId === 'AEFT' || (raw.appName && raw.appName.toLowerCase().indexOf('after effects') !== -1)) {
+                    hostApp = 'AEFT';
+                    return false;
+                }
+            }
+        }
+    } catch (e) {}
+    try {
+        if (typeof csInterface !== "undefined" && typeof csInterface.getApplicationID === 'function') {
+            const id = csInterface.getApplicationID();
+            if (id === 'PPRO') {
+                hostApp = 'PPRO';
+                return true;
+            } else if (id === 'AEFT') {
+                hostApp = 'AEFT';
+                return false;
+            }
+        }
+    } catch (e) {}
+    return false;
+}
+
+function applyHostAppDefaults() {
+    const isPr = isHostPremiere();
+    if (isPr) {
+        currentFormat = 'png';
+        Settings.set('shapeFormat', 'png');
+        const shapeFormatToggle = document.getElementById('shape-format-toggle');
+        if (shapeFormatToggle) {
+            shapeFormatToggle.querySelectorAll('.toggle-btn').forEach(b => {
+                b.classList.toggle('active', b.dataset.format === 'png');
+            });
+        }
+        const formatSelect = document.getElementById('select-clipboard-format');
+        if (formatSelect) {
+            formatSelect.value = 'png';
+        }
+    } else {
+        currentFormat = 'svg';
+        Settings.set('shapeFormat', 'svg');
+        const shapeFormatToggle = document.getElementById('shape-format-toggle');
+        if (shapeFormatToggle) {
+            shapeFormatToggle.querySelectorAll('.toggle-btn').forEach(b => {
+                b.classList.toggle('active', b.dataset.format === 'svg');
+            });
+        }
     }
-} catch (e) {}
+}
+isHostPremiere();
 
 function getActiveProjectDir() {
     return new Promise((resolve) => {
@@ -910,7 +965,7 @@ async function pasteImageFromClipboard() {
     const btn = document.getElementById('btn-clipboard-paste');
     const formatSelect = document.getElementById('select-clipboard-format');
     const targetFormat = (formatSelect ? formatSelect.value : 'png').toLowerCase();
-    const isPremiere = (hostApp === 'PPRO');
+    const isPremiere = isHostPremiere();
 
     if (btn) {
         btn.classList.add('loading');
@@ -1269,7 +1324,7 @@ async function insertActiveCustomizerItem() {
     const size = (modalSizeInput && parseInt(modalSizeInput.value, 10)) || (modalSizeSlider && parseInt(modalSizeSlider.value, 10)) || 256;
     const color = (modalColorHex && modalColorHex.value) || '#ffffff';
     const strokeWidth = (modalStrokeInput && parseFloat(modalStrokeInput.value)) || (modalStrokeSlider && parseFloat(modalStrokeSlider.value)) || 2;
-    const isPremiere = (hostApp === 'PPRO');
+    const isPremiere = isHostPremiere();
 
     updateStatus(`Preparing ${item.name}...`, 'info');
 
@@ -1402,32 +1457,29 @@ async function insertActiveCustomizerItem() {
 }
 
 function triggerHostImport(filePath, assetName, size, isAnimated = false) {
-    const isPremiere = (hostApp === 'PPRO');
+    const isPremiere = isHostPremiere();
     const safePath = filePath.replace(/\\/g, "\\\\");
     const safeName = assetName.replace(/["\\]/g, "");
 
-    updateStatus(`Inserting ${assetName} into timeline...`, 'info');
+    updateStatus(`Inserting ${assetName}...`, 'info');
 
-    if (isPremiere) {
-        const script = `EMOJI_HOST.prInsertFootage("${safePath}", "${safeName}")`;
-        csInterface.evalScript(script, (result) => {
-            if (result === 'SUCCESS') {
-                updateStatus(`Inserted ${assetName} into Premiere timeline!`, 'success');
+    const convertToShape = (!isPremiere && currentFormat === 'svg' && filePath.toLowerCase().endsWith('.svg'));
+    const script = `EMOJI_HOST.insertFootage("${safePath}", "${safeName}", ${size || 256}, ${convertToShape}, ${isAnimated})`;
+    csInterface.evalScript(script, (result) => {
+        if (!result || result.indexOf('ERROR') === -1) {
+            let msg = `Inserted ${assetName} successfully!`;
+            if (result && result.indexOf('SUCCESS:') !== -1) {
+                msg = result.replace('SUCCESS:', '').trim();
+            } else if (isPremiere) {
+                msg = `Inserted ${assetName} into Premiere timeline & Icons bin!`;
             } else {
-                updateStatus(result || 'Premiere insertion failed', 'error');
+                msg = `Inserted ${assetName} into AE composition!`;
             }
-        });
-    } else {
-        const convertToShape = (currentFormat === 'svg' && filePath.toLowerCase().endsWith('.svg'));
-        const script = `EMOJI_HOST.aeInsertFootage("${safePath}", "${safeName}", ${size}, ${convertToShape}, ${isAnimated})`;
-        csInterface.evalScript(script, (result) => {
-            if (result === 'SUCCESS') {
-                updateStatus(`Inserted ${assetName} into AE composition!`, 'success');
-            } else {
-                updateStatus(result || 'AE insertion failed', 'error');
-            }
-        });
-    }
+            updateStatus(msg, 'success');
+        } else {
+            updateStatus(result, 'error');
+        }
+    });
 }
 
 // ----------------------------------------------------
@@ -1436,6 +1488,19 @@ function triggerHostImport(filePath, assetName, size, isAnimated = false) {
 document.addEventListener('DOMContentLoaded', () => {
     loadJSX();
     initTabs();
+
+    // Query host app via ExtendScript and apply host defaults (AE vs Pr)
+    try {
+        csInterface.evalScript('EMOJI_HOST.getHost()', (result) => {
+            if (result) {
+                const res = result.trim();
+                if (res === 'PPRO' || res === 'AEFT') {
+                    hostApp = res;
+                    applyHostAppDefaults();
+                }
+            }
+        });
+    } catch (e) {}
 
     // Populate Icon Library dropdown (Compact Short Labels)
     try {

@@ -1,8 +1,8 @@
 {
-  "version": "2.6.0",
+  "version": "2.7.0",
   "name": "Emoji & Icon Studio by Kairesh",
   "zxpUrl": "https://raw.githubusercontent.com/Kairesh/Emoji-Library-Updates/main/Emoji-Library.zxp",
   "backupZxpUrl": "https://cdn.jsdelivr.net/gh/Kairesh/Emoji-Library-Updates@main/Emoji-Library.zxp",
   "updateUrl": "https://github.com/Kairesh/Emoji-Library-Updates/releases/latest",
-  "releaseNotes": "v2.6.0 MediaFetch & Premiere Master Update!\n• Added PNG / JPG / SVG format selection directly next to IMG PASTE\n• Fixed Premiere Pro 'unsupported compression type' import error\n• Auto-convert local and clipboard SVG/WebP assets to high-res PNG for Premiere Pro\n• Re-encoded clipboard images to clean standard baseline formats (eliminates codec failure)\n• Strictly filtered clipboard drop lists to genuine image files only (ignores video/audio files)\n• Manual update popup: easily download & install updates directly from the in-plugin popup modal"
+  "releaseNotes": "v2.7.0 Universal Premiere & After Effects Master Update!\n• Fixed Premiere Pro 'ERROR: Please select or open a Composition first' completely\n• Host-Specific Defaults: Native Vector Shape Layers for After Effects, Ultra-Crisp 1024px PNG for Premiere Pro\n• Universal ExtendScript host router dynamically handles activeSequence in Pr and activeItem Comp in Ae\n• Auto-creates 'Icons' bin in Premiere Pro and 'Icons' folder in After Effects Project panel\n• MediaFetch PNG / JPG / SVG format selector for clipboard image paste\n• Manual in-plugin update popup: update directly with one click inside Adobe panel"
 }

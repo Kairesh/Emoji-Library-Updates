@@ -55,9 +55,61 @@ var EMOJI_HOST = {
     },
 
     // ----------------------------------------------------
+    // UNIFIED HOST DISPATCHER
+    // ----------------------------------------------------
+    insertFootage: function(filePath, assetName, size, convertToShape, isAnimated) {
+        if (app.name.indexOf("Premiere") !== -1) {
+            return this.prInsertFootage(filePath, assetName);
+        } else {
+            return this.aeInsertFootage(filePath, assetName, size, convertToShape, isAnimated);
+        }
+    },
+
+    // Helper to safely import to AE Project panel "Icons" folder without requiring open composition
+    aeImportToProjectBin: function(filePath, assetName) {
+        try {
+            var file = new File(filePath);
+            if (!file.exists) return "ERROR: File does not exist: " + filePath;
+
+            // Check if already in project
+            for (var i = 1; i <= app.project.items.length; i++) {
+                var pItem = app.project.items[i];
+                if (pItem instanceof FootageItem && pItem.file && pItem.file.fsName === file.fsName) {
+                    return "SUCCESS";
+                }
+            }
+
+            var iconsFolder = null;
+            for (var fIdx = 1; fIdx <= app.project.items.length; fIdx++) {
+                var pFolder = app.project.items[fIdx];
+                if (pFolder instanceof FolderItem && pFolder.name === "Icons") {
+                    iconsFolder = pFolder;
+                    break;
+                }
+            }
+            if (!iconsFolder) {
+                try { iconsFolder = app.project.items.addFolder("Icons"); } catch (e) {}
+            }
+
+            var importOptions = new ImportOptions(file);
+            var footageItem = app.project.importFile(importOptions);
+            if (footageItem && iconsFolder) {
+                try { footageItem.parentFolder = iconsFolder; } catch (e2) {}
+            }
+            if (footageItem) footageItem.name = "Emoji - " + assetName;
+            return "SUCCESS";
+        } catch (e) {
+            return "ERROR: " + e.toString();
+        }
+    },
+
+    // ----------------------------------------------------
     // AFTER EFFECTS SPECIFIC METHODS
     // ----------------------------------------------------
     aeInsertText: function(textString, size, useOriginalColor) {
+        if (app.name.indexOf("Premiere") !== -1) {
+            return "ERROR: Text layers are only supported in After Effects. Please insert as PNG/SVG emoji in Premiere Pro.";
+        }
         var comp = app.project.activeItem;
         if (!comp || !(comp instanceof CompItem)) {
             return "ERROR: Please select or open a Composition first.";
@@ -152,9 +204,18 @@ var EMOJI_HOST = {
     },
 
     aeInsertFootage: function(filePath, emojiName, targetSize, convertToShape, isAnimated) {
+        // Absolute safety guard: If invoked inside Premiere Pro, immediately route to prInsertFootage!
+        if (app.name.indexOf("Premiere") !== -1) {
+            return this.prInsertFootage(filePath, emojiName);
+        }
+
         var comp = app.project.activeItem;
         if (!comp || !(comp instanceof CompItem)) {
-            return "ERROR: Please select or open a Composition first.";
+            var binRes = this.aeImportToProjectBin(filePath, emojiName);
+            if (binRes === "SUCCESS") {
+                return "SUCCESS: Added to 'Icons' folder in Project panel. (Open a Composition to place on timeline)";
+            }
+            return "ERROR: Please select or open an After Effects Composition first.";
         }
 
         app.beginUndoGroup("Insert Emoji Graphic");
@@ -385,7 +446,7 @@ var EMOJI_HOST = {
 
             var activeSeq = app.project.activeSequence;
             if (!activeSeq) {
-                return "SUCCESS"; // Successfully imported into Icons project bin!
+                return "SUCCESS: Added to 'Icons' bin in Project panel. (Open a sequence to place on timeline)";
             }
 
             var playheadTime = activeSeq.getPlayerPosition();
@@ -437,13 +498,15 @@ var EMOJI_HOST = {
                     targetTrack.overwriteClip(projectItem, playheadTime);
                     inserted = true;
                 } catch (eOverwrite) {
-                    targetTrack.insertClip(projectItem, playheadTime);
-                    inserted = true;
+                    try {
+                        targetTrack.insertClip(projectItem, playheadTime);
+                        inserted = true;
+                    } catch (eInsert) {}
                 }
             }
 
             if (!inserted) {
-                return "ERROR: No video tracks found to insert clip.";
+                return "SUCCESS: Added to 'Icons' bin in Project panel. (Place manually on timeline)";
             }
 
             return "SUCCESS";

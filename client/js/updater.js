@@ -9,8 +9,8 @@ const PluginUpdater = (function () {
     const cp = (typeof window !== "undefined" && window.require) ? window.require('child_process') : (typeof require !== "undefined" ? require('child_process') : null);
 
     const MANIFEST_URLS = [
-        "https://cdn.jsdelivr.net/gh/Kairesh/Emoji-Library-Updates@main/version.json",
-        "https://raw.githubusercontent.com/Kairesh/Emoji-Library-Updates/main/version.json"
+        "https://raw.githubusercontent.com/Kairesh/Emoji-Library-Updates/main/version.json",
+        "https://cdn.jsdelivr.net/gh/Kairesh/Emoji-Library-Updates@main/version.json"
     ];
 
     function getInstalledVersion() {
@@ -34,7 +34,7 @@ const PluginUpdater = (function () {
         } catch (e) {
             console.warn("getInstalledVersion warning:", e);
         }
-        return "2.6.0";
+        return "2.7.0";
     }
 
     function compareVersions(v1, v2) {
@@ -241,7 +241,9 @@ const PluginUpdater = (function () {
             extDir = decodeURIComponent(extDir);
             if (extDir.charAt(0) === '/' && extDir.charAt(2) === ':') extDir = extDir.slice(1);
 
-            const psExtract = `powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -Command "Expand-Archive -LiteralPath '${tempZip}' -DestinationPath '${extDir}' -Force"`;
+            const safeExtDir = extDir.replace(/\//g, '\\');
+            const safeZip = tempZip.replace(/\//g, '\\');
+            const psExtract = `powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -Command "Expand-Archive -LiteralPath '${safeZip}' -DestinationPath '${safeExtDir}' -Force"`;
             await new Promise((resolve, reject) => {
                 if (cp) {
                     cp.exec(psExtract, (err, stdout, stderr) => {

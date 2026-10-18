@@ -53,16 +53,27 @@ CSInterface.prototype.getSystemPath = function(pathType) {
     return "";
 };
 
+CSInterface.prototype.getHostEnvironment = function() {
+    if (this.checkAdobeCep()) {
+        try {
+            return JSON.parse(window.__adobe_cep__.getHostEnvironment());
+        } catch (e) {
+            return { appId: "UNKNOWN" };
+        }
+    }
+    return { appId: "UNKNOWN" };
+};
+
 CSInterface.prototype.getApplicationID = function() {
     if (this.checkAdobeCep()) {
         try {
             var hostInfo = JSON.parse(window.__adobe_cep__.getHostEnvironment());
-            return hostInfo.appId; // e.g., "AEFT", "PPRO"
+            if (hostInfo && hostInfo.appId) return hostInfo.appId;
         } catch (e) {
-            return "AEFT";
+            return "UNKNOWN";
         }
     }
-    return "AEFT";
+    return "UNKNOWN";
 };
 
 CSInterface.prototype.closeExtension = function() {

@@ -148,7 +148,7 @@ const PluginUpdater = (function () {
                 if (remindVer === data.version && remindTime > Date.now()) return;
             }
 
-            if (isManual && isNewer) {
+            if (isNewer) {
                 showUpdateModal(data, currentVer);
             }
 

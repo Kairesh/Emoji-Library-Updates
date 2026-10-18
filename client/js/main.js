@@ -133,19 +133,35 @@ async function resolveAssetsDir() {
     return targetDir;
 }
 
-let cachedAssetsDir = "";
 function getAssetsDirSync() {
-    if (cachedAssetsDir && fs && fs.existsSync(cachedAssetsDir)) return cachedAssetsDir;
     let target = "";
-    if (os && path) {
-        target = path.join(os.homedir(), "Documents", "Icons");
+    // 1. Check if user has a selected or linked folder in Folders tab / Settings
+    const linkedFolders = (typeof AssetManager !== "undefined" && AssetManager.getLinkedFolders) ? AssetManager.getLinkedFolders() : (Settings.get('linkedFolders') || []);
+    const select = document.getElementById('linked-folder-select');
+    let chosenFolder = (select && select.value) ? select.value : (linkedFolders.length > 0 ? linkedFolders[0] : null);
+
+    if (chosenFolder && fs && fs.existsSync(chosenFolder)) {
+        // If chosen folder is already named "Icons", use it directly. Otherwise create/use an "Icons" subfolder inside it.
+        const baseName = path ? path.basename(chosenFolder) : '';
+        if (baseName.toLowerCase() === 'icons') {
+            target = chosenFolder;
+        } else if (path) {
+            target = path.join(chosenFolder, "Icons");
+        } else {
+            target = chosenFolder;
+        }
     } else {
-        target = "C:\\Icons";
+        // 2. Default fallback to Documents/Icons
+        if (os && path) {
+            target = path.join(os.homedir(), "Documents", "Icons");
+        } else {
+            target = "C:\\Icons";
+        }
     }
+
     if (fs && !fs.existsSync(target)) {
         try { fs.mkdirSync(target, { recursive: true }); } catch (_) {}
     }
-    cachedAssetsDir = target;
     return target;
 }
 
@@ -302,21 +318,15 @@ function setupCardDrag(card, item) {
 
             e.dataTransfer.effectAllowed = 'copyMove';
 
-            // 1. Adobe CEP Native DnD (For Premiere Pro Timeline & Project Bins, AE Project Panel)
+            // Standard Adobe CEP Drop payload - exactly 1 file key so host imports 1 clip
             e.dataTransfer.setData('com.adobe.cep.dnd.file.0', nativeWinPath);
-            e.dataTransfer.setData('com.adobe.cep.dnd.file', nativeWinPath);
-
-            // 2. Standard URI & Text formats (for OS Windows Explorer, external drop)
-            e.dataTransfer.setData('text/uri-list', fileUri);
-            e.dataTransfer.setData('text/plain', nativeWinPath);
-            e.dataTransfer.setData('DownloadURL', `application/octet-stream:${fileName}:${fileUri}`);
 
             card.classList.add('dragging');
 
             if (isHostPremiere()) {
                 updateStatus(`Drop onto Premiere Timeline track or Project bin to insert!`, 'info');
             } else {
-                updateStatus(`Drop onto Project panel, or Double-Click card to insert into Comp!`, 'info');
+                updateStatus(`Drop onto Project panel to import, or click card to customize & insert!`, 'info');
             }
         } catch (dragErr) {
             console.warn("Dragstart error:", dragErr);
@@ -325,20 +335,17 @@ function setupCardDrag(card, item) {
 
     card.addEventListener('dragend', () => {
         card.classList.remove('dragging');
-    });
-
-    // Double-click on any card: direct 1-click instant insert into Comp/Timeline!
-    card.addEventListener('dblclick', (e) => {
-        e.stopPropagation();
-        const localPath = prepareAssetFileSync(card, item);
-        if (localPath) {
-            const assetName = item.name || (item.type === 'emoji' ? 'Emoji' : 'Icon');
-            const size = Settings.get('defaultSize') || 256;
-            triggerHostImport(localPath, assetName, size, false);
-            addToRecent(item);
-        } else {
-            openCustomizer(item);
-        }
+        // Let host app complete the drop import, then organize the newly added file into "Icons" bin
+        setTimeout(() => {
+            try {
+                const localPath = prepareAssetFileSync(card, item);
+                if (localPath) {
+                    const safePath = localPath.replace(/\\/g, "\\\\");
+                    csInterface.evalScript(`EMOJI_HOST.organizeDroppedItem("${safePath}")`);
+                    addToRecent(item);
+                }
+            } catch (_) {}
+        }, 350);
     });
 }
 
@@ -2444,4 +2451,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Initial render
     renderEmojis(true);
+
+    // Check for updates in background (pops up update modal when a newer version is available on GitHub)
+    setTimeout(() => {
+        PluginUpdater.check(false);
+    }, 1500);
 });

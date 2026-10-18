@@ -647,5 +647,74 @@ var EMOJI_HOST = {
             }
         }
         return null;
+    },
+
+    organizeDroppedItem: function(filePath) {
+        try {
+            if (this.isPremiereHost()) {
+                var file = new File(filePath);
+                var root = app.project.rootItem;
+                if (!root) return "NO_ROOT";
+
+                var iconsBin = null;
+                for (var b = 0; b < root.children.numItems; b++) {
+                    var cBin = root.children[b];
+                    if (cBin && cBin.type === 2 && cBin.name === "Icons") {
+                        iconsBin = cBin;
+                        break;
+                    }
+                }
+                if (!iconsBin) {
+                    try { iconsBin = root.createBin("Icons"); } catch (e) {}
+                }
+                if (!iconsBin) return "NO_BIN";
+
+                var targetName = file.name ? file.name.toLowerCase() : "";
+                var targetFs = file.fsName ? file.fsName.replace(/\\/g, "/").toLowerCase() : "";
+
+                for (var i = root.children.numItems - 1; i >= 0; i--) {
+                    var item = root.children[i];
+                    if (item && item.type !== 2 && item !== iconsBin) {
+                        var mPath = "";
+                        try { if (item.getMediaPath) mPath = item.getMediaPath().replace(/\\/g, "/").toLowerCase(); } catch (_) {}
+                        var iName = item.name ? item.name.toLowerCase() : "";
+                        if ((mPath && mPath === targetFs) || (targetName && iName === targetName) || (targetName && iName.indexOf(targetName) !== -1)) {
+                            try {
+                                if (typeof item.moveBin === "function") {
+                                    item.moveBin(iconsBin);
+                                }
+                            } catch (_) {}
+                        }
+                    }
+                }
+                return "SUCCESS";
+            } else {
+                var file = new File(filePath);
+                var iconsFolder = null;
+                for (var fIdx = 1; fIdx <= app.project.items.length; fIdx++) {
+                    var pFolder = app.project.items[fIdx];
+                    if (pFolder instanceof FolderItem && pFolder.name === "Icons") {
+                        iconsFolder = pFolder;
+                        break;
+                    }
+                }
+                if (!iconsFolder) {
+                    try { iconsFolder = app.project.items.addFolder("Icons"); } catch (e) {}
+                }
+                if (!iconsFolder) return "NO_FOLDER";
+
+                for (var i = 1; i <= app.project.items.length; i++) {
+                    var pItem = app.project.items[i];
+                    if (pItem instanceof FootageItem && pItem.file && pItem.file.fsName === file.fsName) {
+                        if (pItem.parentFolder !== iconsFolder) {
+                            try { pItem.parentFolder = iconsFolder; } catch (_) {}
+                        }
+                    }
+                }
+                return "SUCCESS";
+            }
+        } catch (e) {
+            return "ERROR: " + e.toString();
+        }
     }
 };

@@ -1,8 +1,8 @@
 {
-  "version": "2.8.3",
+  "version": "2.8.4",
   "name": "Emoji & Icon Studio by Kairesh",
   "zxpUrl": "https://raw.githubusercontent.com/Kairesh/Emoji-Library-Updates/main/Emoji-Library.zxp",
   "backupZxpUrl": "https://cdn.jsdelivr.net/gh/Kairesh/Emoji-Library-Updates@main/Emoji-Library.zxp",
   "updateUrl": "https://github.com/Kairesh/Emoji-Library-Updates/releases/latest",
-  "releaseNotes": "v2.8.3 Native Drag & Drop, Double-Click Insert & Clear All Recents!\n• Native Drag & Drop: Full Adobe CEP protocol (com.adobe.cep.dnd.file.0) for dragging assets directly into Premiere Pro Timeline, bins, and After Effects!\n• Instant Double-Click: Double-click any emoji, icon, or local file to instantly insert it into your active Comp / Timeline with zero dialogs!\n• Clear All Recents: One-click \"Clear All\" button in Recents toolbar to easily reset your recent history!\n• Synchronous File Generator: Instant zero-latency rendering of vector SVGs and crisp PNGs so drag payloads never fail or show forbidden cursors!\n• Fixed child drag interception so dragging cards is smooth and seamless across all platforms."
+  "releaseNotes": "v2.8.4 Single-Item Drop, Auto-Organized 'Icons' Bin & Local Folder Sync!\n• Single-Item Timeline Drop: Fixed duplicate file drops in Premiere Pro timeline — dragging drops exactly 1 clip cleanly onto your sequence!\n• Auto-Organized 'Icons' Bin: Dropped or inserted assets are automatically organized into an 'Icons' bin in Premiere Pro and After Effects project panels!\n• Local 'Icons' Folder: Automatically creates and saves all assets into an 'Icons' folder inside your selected/linked folder on disk!\n• Clear All Recents: Dedicated one-click button in Recents toolbar to easily clear all recent history.\n• Real-Time Folder Sync: Live updates when adding or removing items from local folders in Windows Explorer."
 }

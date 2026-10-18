@@ -135,10 +135,10 @@ const Net = (function () {
                         fs.unlink(destPath, () => {});
                         reject(err);
                     });
-                    req.setTimeout(60000, () => {
+                    req.setTimeout(10000, () => {
                         req.destroy();
                         fs.unlink(destPath, () => {});
-                        reject(new Error("Download timed out"));
+                        reject(new Error(`Download timed out for ${urlStr}`));
                     });
                     req.end();
                 } catch (e) {

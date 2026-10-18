@@ -9,8 +9,8 @@ const PluginUpdater = (function () {
     const cp = (typeof window !== "undefined" && window.require) ? window.require('child_process') : (typeof require !== "undefined" ? require('child_process') : null);
 
     const MANIFEST_URLS = [
-        "https://raw.githubusercontent.com/Kairesh/Emoji-Library-Updates/main/version.json",
-        "https://cdn.jsdelivr.net/gh/Kairesh/Emoji-Library-Updates@main/version.json"
+        "https://cdn.jsdelivr.net/gh/Kairesh/Emoji-Library-Updates@main/version.json",
+        "https://raw.githubusercontent.com/Kairesh/Emoji-Library-Updates/main/version.json"
     ];
 
     function getInstalledVersion() {
@@ -76,9 +76,8 @@ const PluginUpdater = (function () {
             const data = await fetchManifest();
             if (!data) {
                 if (isManual) {
-                    // Even if network fails, show manual fallback modal
                     showUpdateModal({
-                        version: "2.0.1",
+                        version: "2.1.0",
                         releaseNotes: "Could not reach update server. Check internet connection or visit GitHub directly."
                     }, currentVer);
                     if (sStatus) {
@@ -178,6 +177,7 @@ const PluginUpdater = (function () {
         const progRow = document.getElementById('update-progress-row');
         const progBar = document.getElementById('update-progress-bar');
         const progTxt = document.getElementById('update-progress-text');
+        const btnInstall = document.getElementById('btn-modal-update-now');
 
         const updateStatus = (pct, msg) => {
             if (progRow) progRow.style.display = 'block';
@@ -186,54 +186,71 @@ const PluginUpdater = (function () {
         };
 
         try {
-            updateStatus(10, "Fetching package info...");
-            const packageUrl = data.zxpUrl || data.backupZxpUrl || data.packageUrl;
+            updateStatus(10, "Connecting to update CDN...");
+            const candidateUrls = [
+                data.zxpUrl,
+                data.backupZxpUrl,
+                `https://cdn.jsdelivr.net/gh/Kairesh/Emoji-Library-Updates@main/Emoji-Library-v${data.version}.zxp`,
+                `https://raw.githubusercontent.com/Kairesh/Emoji-Library-Updates/main/Emoji-Library-v${data.version}.zxp`
+            ].filter(Boolean);
 
-            if (packageUrl && (packageUrl.endsWith('.zxp') || packageUrl.endsWith('.zip'))) {
-                updateStatus(25, "Downloading update package...");
-                const tempZxp = path.join(os.tmpdir(), `Emoji_Library_v${data.version}.zxp`);
-                const tempZip = path.join(os.tmpdir(), `Emoji_Library_v${data.version}.zip`);
+            const tempZxp = path.join(os.tmpdir(), `Emoji_Library_v${data.version}.zxp`);
+            const tempZip = path.join(os.tmpdir(), `Emoji_Library_v${data.version}.zip`);
 
-                await Net.downloadFile(packageUrl, tempZxp, (p) => {
-                    updateStatus(25 + Math.floor(p * 0.45), `Downloading (${Math.floor(p)}%)...`);
-                });
+            let downloadSuccess = false;
+            let lastErr = null;
 
-                fs.copyFileSync(tempZxp, tempZip);
-
-                updateStatus(75, "Extracting update into plugin directory...");
-                let extDir = csInterface.getSystemPath(SystemPath.EXTENSION);
-                if (extDir.startsWith("file://")) extDir = extDir.slice(7);
-                extDir = decodeURIComponent(extDir);
-                if (extDir.charAt(0) === '/' && extDir.charAt(2) === ':') extDir = extDir.slice(1);
-
-                const psExtract = `Expand-Archive -Path "${tempZip}" -DestinationPath "${extDir}" -Force`;
-                await new Promise((res) => {
-                    if (cp) {
-                        cp.exec(`powershell -Command "${psExtract}"`, (err) => {
-                            if (err) console.warn("Extract error:", err);
-                            res();
-                        });
-                    } else {
-                        res();
+            for (const url of candidateUrls) {
+                try {
+                    updateStatus(25, "Downloading update package...");
+                    await Net.downloadFile(url, tempZxp, (p) => {
+                        updateStatus(25 + Math.floor(p * 0.45), `Downloading (${Math.floor(p)}%)...`);
+                    });
+                    if (fs.existsSync(tempZxp) && fs.statSync(tempZxp).size > 1000) {
+                        downloadSuccess = true;
+                        break;
                     }
-                });
-
-                // Save installed version permanently
-                localStorage.setItem('kairesh_installed_version', data.version);
-
-                updateStatus(100, "Update complete! Reloading panel...");
-                setTimeout(() => {
-                    window.location.reload();
-                }, 1200);
-            } else {
-                if (data.updateUrl && cp) {
-                    cp.exec(`start "" "${data.updateUrl}"`);
+                } catch (dlErr) {
+                    console.warn(`Mirror download failed (${url}):`, dlErr.message);
+                    lastErr = dlErr;
                 }
-                updateStatus(100, "Opening download page...");
             }
+
+            if (!downloadSuccess) {
+                throw lastErr || new Error("All mirrors failed. Check connection.");
+            }
+
+            fs.copyFileSync(tempZxp, tempZip);
+
+            updateStatus(75, "Extracting update into plugin directory...");
+            let extDir = csInterface.getSystemPath(SystemPath.EXTENSION);
+            if (extDir.startsWith("file://")) extDir = extDir.slice(7);
+            extDir = decodeURIComponent(extDir);
+            if (extDir.charAt(0) === '/' && extDir.charAt(2) === ':') extDir = extDir.slice(1);
+
+            const psExtract = `Expand-Archive -Path "${tempZip}" -DestinationPath "${extDir}" -Force`;
+            await new Promise((res) => {
+                if (cp) {
+                    cp.exec(`powershell -Command "${psExtract}"`, (err) => {
+                        if (err) console.warn("Extract error:", err);
+                        res();
+                    });
+                } else {
+                    res();
+                }
+            });
+
+            // Save installed version permanently
+            localStorage.setItem('kairesh_installed_version', data.version);
+
+            updateStatus(100, "Update complete! Reloading panel...");
+            setTimeout(() => {
+                window.location.reload();
+            }, 1200);
         } catch (e) {
             console.error("Update failed:", e);
             updateStatus(100, "Update failed: " + e.message);
+            if (btnInstall) btnInstall.disabled = false;
         }
     }
 

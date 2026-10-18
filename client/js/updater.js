@@ -154,15 +154,17 @@ const PluginUpdater = (function () {
 
         try {
             updateStatus(10, "Fetching package info...");
-            const packageUrl = data.packageUrl || data.backupPackageUrl;
+            const packageUrl = data.zxpUrl || data.backupZxpUrl || data.packageUrl;
             
-            if (packageUrl && (packageUrl.endsWith('.zip') || packageUrl.endsWith('.zxp'))) {
+            if (packageUrl && (packageUrl.endsWith('.zxp') || packageUrl.endsWith('.zip'))) {
                 updateStatus(30, "Downloading latest update package...");
                 // Download package to temp
+                const tempZxp = path.join(os.tmpdir(), `Emoji_Library_v${data.version}.zxp`);
                 const tempZip = path.join(os.tmpdir(), `Emoji_Library_v${data.version}.zip`);
-                await downloadFile(packageUrl, tempZip, (p) => {
+                await downloadFile(packageUrl, tempZxp, (p) => {
                     updateStatus(30 + Math.floor(p * 0.4), `Downloading (${Math.floor(p)}%)...`);
                 });
+                fs.copyFileSync(tempZxp, tempZip);
 
                 updateStatus(75, "Extracting update into plugin directory...");
                 // Determine extension dir

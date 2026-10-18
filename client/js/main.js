@@ -2318,9 +2318,4 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Initial render
     renderEmojis(true);
-
-    // Initial background update check
-    setTimeout(() => {
-        PluginUpdater.check(false);
-    }, 1000);
 });

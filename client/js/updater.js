@@ -34,7 +34,7 @@ const PluginUpdater = (function () {
         } catch (e) {
             console.warn("getInstalledVersion warning:", e);
         }
-        return "2.7.0";
+        return "2.8.0";
     }
 
     function compareVersions(v1, v2) {
@@ -150,6 +150,11 @@ const PluginUpdater = (function () {
         if (notes) notes.textContent = data.releaseNotes || "Performance optimizations and new icon libraries.";
 
         modal.style.display = 'flex';
+        modal.style.zIndex = '999999';
+
+        // Close settings drawer so it never covers the update modal
+        const drawer = document.getElementById('settings-drawer');
+        if (drawer) drawer.style.display = 'none';
 
         if (btnClose) {
             btnClose.onclick = () => { modal.style.display = 'none'; };

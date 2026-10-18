@@ -1,0 +1,8 @@
+{
+  "version": "2.0.0",
+  "name": "Emoji & Icon Studio by Kairesh",
+  "packageUrl": "https://raw.githubusercontent.com/Kairesh/Emoji-Library-Updates/main/Emoji-Library-v2.0.0.zip",
+  "backupPackageUrl": "https://cdn.jsdelivr.net/gh/Kairesh/Emoji-Library-Updates@main/Emoji-Library-v2.0.0.zip",
+  "updateUrl": "https://github.com/Kairesh/Emoji-Library-Updates/releases/latest",
+  "releaseNotes": "v2.0.0: Complete Studio Upgrade! Online On-Demand streaming for 200,000+ vector icons (Lucide, Phosphor, Tabler, Heroicons, Brand Logos, Retro Pixels), custom playlists & favorites, local PC folder scanning, live customization modal (color/hex, stroke width, size, light/dark contrast test), and native Adobe dark theme UI."
+}

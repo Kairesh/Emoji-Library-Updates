@@ -1,0 +1,355 @@
+// Host-side ExtendScript execution context for com.antigravity.emojilib.panel
+
+var EMOJI_HOST = {
+    // Utility to log to console
+    log: function(msg) {
+        $.writeln("[Emoji Plugin] " + msg);
+    },
+
+    // Detect Host App
+    getHost: function() {
+        if (app.name.indexOf("After Effects") !== -1) {
+            return "AEFT";
+        } else if (app.name.indexOf("Premiere") !== -1) {
+            return "PPRO";
+        }
+        return "UNKNOWN";
+    },
+
+    // Get Active Project Directory (Premiere Pro or After Effects)
+    getProjectDirectory: function() {
+        try {
+            // Check Premiere Pro first
+            if (typeof app.project !== "undefined" && typeof app.project.path !== "undefined") {
+                if (app.project.path && app.project.path.length > 0) {
+                    var prFile = new File(app.project.path);
+                    if (prFile.exists && prFile.parent) {
+                        return prFile.parent.fsName;
+                    }
+                }
+            }
+            
+            // Check After Effects
+            if (typeof app.project !== "undefined" && typeof app.project.file !== "undefined") {
+                if (app.project.file && app.project.file.exists && app.project.file.parent) {
+                    return app.project.file.parent.fsName;
+                }
+            }
+        } catch (e) {
+            // ignore
+        }
+        return "";
+    },
+
+    // ----------------------------------------------------
+    // AFTER EFFECTS SPECIFIC METHODS
+    // ----------------------------------------------------
+    aeInsertText: function(textString, size, useOriginalColor) {
+        var comp = app.project.activeItem;
+        if (!comp || !(comp instanceof CompItem)) {
+            return "ERROR: Please select or open a Composition first.";
+        }
+
+        app.beginUndoGroup("Insert Emoji Text");
+        try {
+            var textLayer = comp.layers.addText(textString);
+            
+            // Set base font as standard Arial
+            var textProp = textLayer.property("ADBE Text Properties").property("ADBE Text Document");
+            var textDoc = textProp.value;
+            textDoc.fontSize = parseFloat(size) || 120;
+            textDoc.justification = ParagraphJustification.CENTER_JUSTIFY;
+            
+            var baseFont = "Arial-BoldMT";
+            textDoc.font = baseFont;
+            
+            // Default styling for the layer (solid fill, no stroke outlines)
+            textDoc.applyFill = true;
+            textDoc.applyStroke = false;
+            textProp.setValue(textDoc);
+            
+            // Re-read textDoc to ensure properties are registered
+            textDoc = textProp.value;
+            
+            var fontName = ($.os.indexOf("Windows") !== -1) ? "EmojiOneColor" : "AppleColorEmoji";
+            var aeVersion = parseFloat(app.version);
+
+            // If CharacterRange is supported (After Effects 24.3+)
+            if (aeVersion >= 24.3) {
+                var textStr = textDoc.text;
+                var i = 0;
+                while (i < textStr.length) {
+                    var code = textStr.charCodeAt(i);
+                    var isHighSurrogate = (code >= 0xD800 && code <= 0xDBFF);
+                    var charLen = 1;
+                    
+                    if (isHighSurrogate && (i + 1 < textStr.length)) {
+                        charLen = 2;
+                    }
+                    
+                    var isEmojiChar = isHighSurrogate || 
+                                      (code >= 0x2000 && code <= 0x32FF) || 
+                                      (code >= 0xFE00 && code <= 0xFE0F);
+                    
+                    try {
+                        var range = textDoc.characterRange(i, i + charLen);
+                        if (isEmojiChar) {
+                            if (useOriginalColor) {
+                                range.font = fontName;
+                                range.applyFill = false; // Disable custom color overlay for color emojis!
+                            } else {
+                                range.font = baseFont;
+                                range.applyFill = true;  // Force solid color for silhouette emojis
+                            }
+                        } else {
+                            range.font = baseFont;
+                            range.applyFill = true;
+                        }
+                    } catch (e) {
+                        // Ignore character formatting errors
+                    }
+                    
+                    i += charLen; // Move past the processed character(s)
+                }
+            } else {
+                // Fallback for older versions of After Effects (pre 24.3)
+                if (useOriginalColor) {
+                    // Try EmojiOneColor first (beautiful standard letters + color emojis)
+                    // If not installed, falls back to Segoe UI Emoji / Apple Color Emoji
+                    textDoc.font = "EmojiOneColor";
+                    textDoc.applyFill = false; // Enable native colors
+                } else {
+                    textDoc.font = baseFont;
+                    textDoc.applyFill = true;
+                }
+                textProp.setValue(textDoc);
+            }
+
+            // Center in comp
+            textLayer.property("ADBE Transform Group").property("ADBE Anchor Point").setValue([0, 0]);
+            textLayer.property("ADBE Transform Group").property("ADBE Position").setValue([comp.width / 2, comp.height / 2]);
+            
+            textLayer.selected = true;
+            app.endUndoGroup();
+            return "SUCCESS";
+        } catch (err) {
+            app.endUndoGroup();
+            return "ERROR: " + err.toString();
+        }
+    },
+
+    aeInsertFootage: function(filePath, emojiName, targetSize, convertToShape) {
+        var comp = app.project.activeItem;
+        if (!comp || !(comp instanceof CompItem)) {
+            return "ERROR: Please select or open a Composition first.";
+        }
+
+        app.beginUndoGroup("Insert Emoji Graphic");
+        try {
+            var file = new File(filePath);
+            if (!file.exists) {
+                app.endUndoGroup();
+                return "ERROR: File does not exist: " + filePath;
+            }
+
+            // Check if file is already imported in project to avoid duplicate bin items
+            var footageItem = null;
+            for (var i = 1; i <= app.project.items.length; i++) {
+                var pItem = app.project.items[i];
+                if (pItem instanceof FootageItem && pItem.file && pItem.file.fsName === file.fsName) {
+                    footageItem = pItem;
+                    break;
+                }
+            }
+
+            if (!footageItem) {
+                var importOptions = new ImportOptions(file);
+                footageItem = app.project.importFile(importOptions);
+            }
+            
+            // Add to composition
+            var layer = comp.layers.add(footageItem);
+            layer.name = "Emoji - " + emojiName;
+            
+            // Position at center
+            layer.property("ADBE Transform Group").property("ADBE Position").setValue([comp.width / 2, comp.height / 2]);
+            
+            // Scale to match target size (with robust fallbacks for SVGs that report 0 width)
+            var w = footageItem.width || layer.source.width || 128;
+            var h = footageItem.height || layer.source.height || 128;
+            if (w <= 0) w = 128;
+            if (h <= 0) h = 128;
+
+            if (targetSize) {
+                var scaleX = (targetSize / w) * 100;
+                var scaleY = (targetSize / h) * 100;
+                layer.property("ADBE Transform Group").property("ADBE Scale").setValue([scaleX, scaleY, 100]);
+            }
+
+            // If it's an SVG file, enable continuously rasterize (collapse transformation) to prevent blurriness when scaled
+            var isSvg = (filePath.toLowerCase().indexOf(".svg") !== -1);
+            if (isSvg) {
+                try {
+                    layer.collapseTransformation = true;
+                } catch (e) {
+                    // Ignore if not supported on this layer type
+                }
+            }
+
+            // Convert to native AE Shape Layer if requested (SVGs only)
+            if (convertToShape && isSvg) {
+                try {
+                    // Deselect all layers first
+                    for (var j = 1; j <= comp.layers.length; j++) {
+                        comp.layers[j].selected = false;
+                    }
+                    // Select only our imported vector layer
+                    layer.selected = true;
+                    
+                    var cmdID = app.findMenuCommandId("Create Shapes from Vector Layer");
+                    if (!cmdID || cmdID === 0) {
+                        cmdID = 3973; // Fallback for localized versions of After Effects
+                    }
+                    
+                    if (cmdID) {
+                        app.executeCommand(cmdID);
+                        // The command creates a new shape layer and leaves the original vector layer hidden.
+                        // We delete the original vector layer to keep the timeline clean!
+                        layer.remove();
+                    }
+                } catch (shapeErr) {
+                    // Fallback: keep the original vector layer selected if conversion fails
+                    layer.selected = true;
+                }
+            } else {
+                layer.selected = true;
+            }
+
+            app.endUndoGroup();
+            return "SUCCESS";
+        } catch (err) {
+            app.endUndoGroup();
+            return "ERROR: " + err.toString();
+        }
+    },
+
+    // ----------------------------------------------------
+    // PREMIERE PRO SPECIFIC METHODS
+    // ----------------------------------------------------
+    prInsertFootage: function(filePath, emojiName) {
+        var activeSeq = app.project.activeSequence;
+        if (!activeSeq) {
+            return "ERROR: Please open a Sequence first.";
+        }
+
+        try {
+            // First check if the item is already in project bins to avoid duplicates
+            var projectItem = this.prFindProjectItemByPath(filePath);
+            
+            if (!projectItem) {
+                var filePaths = [filePath];
+                // Premiere importFiles API: importFiles(filePaths, suppressUI, targetBin, importAsNumberedStills)
+                var success = app.project.importFiles(filePaths, true, app.project.getInsertionBin(), false);
+                if (!success) {
+                    return "ERROR: Premiere failed to import the file.";
+                }
+                projectItem = this.prFindProjectItemByPath(filePath);
+            }
+
+            if (!projectItem) {
+                return "ERROR: Could not find imported item in project bin.";
+            }
+
+            // Name the item nicely
+            projectItem.name = "Emoji - " + emojiName;
+
+            var playheadTime = activeSeq.getPlayerPosition();
+            var inserted = false;
+            var numTracks = activeSeq.videoTracks.numTracks;
+            var targetTrack = null;
+
+            // Search for an available video track at playhead, preferring upper tracks (V2, V3...)
+            for (var t = 1; t < numTracks; t++) {
+                var vt = activeSeq.videoTracks[t];
+                var isOccupied = false;
+                for (var c = 0; c < vt.clips.numItems; c++) {
+                    var clip = vt.clips[c];
+                    if (playheadTime.ticks >= clip.start.ticks && playheadTime.ticks < clip.end.ticks) {
+                        isOccupied = true;
+                        break;
+                    }
+                }
+                if (!isOccupied) {
+                    targetTrack = vt;
+                    break;
+                }
+            }
+
+            // If higher tracks are busy, check V1
+            if (!targetTrack && numTracks > 0) {
+                var v0 = activeSeq.videoTracks[0];
+                var v0Occupied = false;
+                for (var c0 = 0; c0 < v0.clips.numItems; c0++) {
+                    var clip0 = v0.clips[c0];
+                    if (playheadTime.ticks >= clip0.start.ticks && playheadTime.ticks < clip0.end.ticks) {
+                        v0Occupied = true;
+                        break;
+                    }
+                }
+                if (!v0Occupied) {
+                    targetTrack = v0;
+                }
+            }
+
+            // Fallback to highest track
+            if (!targetTrack && numTracks > 0) {
+                targetTrack = activeSeq.videoTracks[numTracks - 1];
+            }
+
+            if (targetTrack) {
+                try {
+                    // Non-destructive overwrite at playhead
+                    targetTrack.overwriteClip(projectItem, playheadTime);
+                    inserted = true;
+                } catch (eOverwrite) {
+                    targetTrack.insertClip(projectItem, playheadTime);
+                    inserted = true;
+                }
+            }
+
+            if (!inserted) {
+                return "ERROR: No video tracks found to insert clip.";
+            }
+
+            return "SUCCESS";
+        } catch (err) {
+            return "ERROR: " + err.toString();
+        }
+    },
+
+    prFindProjectItemByPath: function(filePath) {
+        return this.prSearchBin(app.project.rootItem, filePath);
+    },
+
+    prSearchBin: function(folder, filePath) {
+        // Normalize paths for comparison (replace backslashes)
+        var normTarget = filePath.replace(/\\/g, "/").toLowerCase();
+        
+        for (var i = 0; i < folder.children.numItems; i++) {
+            var child = folder.children[i];
+            if (child.type === 2) { // ProjectItemType.BIN is 2
+                var found = this.prSearchBin(child, filePath);
+                if (found) return found;
+            } else if (child.type === 1) { // ProjectItemType.CLIP is 1
+                var mediaPath = child.getMediaPath();
+                if (mediaPath) {
+                    var normChild = mediaPath.replace(/\\/g, "/").toLowerCase();
+                    if (normChild === normTarget) {
+                        return child;
+                    }
+                }
+            }
+        }
+        return null;
+    }
+};

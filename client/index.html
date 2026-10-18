@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Emoji & Icon Studio by Kairesh</title>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Top Navigation Bar -->
+        <header class="panel-header">
+            <!-- App Tabs -->
+            <div class="top-nav-bar">
+                <div class="nav-tabs">
+                    <button class="nav-tab-btn active" data-tab="emojis">Emojis</button>
+                    <button class="nav-tab-btn" data-tab="icons">Icons (200k+)</button>
+                    <button class="nav-tab-btn" data-tab="folders">Folders</button>
+                    <button class="nav-tab-btn" data-tab="playlists">Playlists</button>
+                </div>
+                <div class="header-actions">
+                    <button id="toggle-settings" class="icon-btn-settings" title="Settings & Guides">⚙️</button>
+                </div>
+            </div>
+
+            <!-- Search & Filter Controls -->
+            <div class="search-row">
+                <input type="text" id="search-input" placeholder="Search emojis & icons..." autocomplete="off" />
+                <button id="clear-search" class="icon-btn" title="Clear Search" style="display: none;">✕</button>
+            </div>
+
+            <!-- Emojis Sub-Toolbar (shown when tab is 'emojis') -->
+            <div id="emoji-subtoolbar" class="subtoolbar">
+                <nav class="category-tabs" id="category-tabs">
+                    <button class="tab-btn active" data-category="all" title="All Emojis">✨</button>
+                    <button class="tab-btn" data-category="Smileys & Emotion" title="Smileys & Emotion">😀</button>
+                    <button class="tab-btn" data-category="People & Body" title="People & Body">👋</button>
+                    <button class="tab-btn" data-category="Animals & Nature" title="Animals & Nature">🐶</button>
+                    <button class="tab-btn" data-category="Food & Drink" title="Food & Drink">🍔</button>
+                    <button class="tab-btn" data-category="Travel & Places" title="Travel & Places">🚗</button>
+                    <button class="tab-btn" data-category="Activities" title="Activities">⚽</button>
+                    <button class="tab-btn" data-category="Objects" title="Objects">💡</button>
+                    <button class="tab-btn" data-category="Symbols" title="Symbols">❤️</button>
+                    <button class="tab-btn" data-category="Flags" title="Flags">🇺🇸</button>
+                </nav>
+                <div class="skin-tone-selector" id="skin-tone-selector">
+                    <button class="tone-btn active" data-tone="" style="background: #FFD225;" title="Default Tone"></button>
+                    <button class="tone-btn" data-tone="🏻" style="background: #FADCBC;" title="Light Tone"></button>
+                    <button class="tone-btn" data-tone="🏼" style="background: #E0BB95;" title="Medium-Light Tone"></button>
+                    <button class="tone-btn" data-tone="🏽" style="background: #BF8F68;" title="Medium Tone"></button>
+                    <button class="tone-btn" data-tone="🏾" style="background: #9B643D;" title="Medium-Dark Tone"></button>
+                    <button class="tone-btn" data-tone="🏿" style="background: #5C4438;" title="Dark Tone"></button>
+                </div>
+            </div>
+
+            <!-- Icons Sub-Toolbar (shown when tab is 'icons') -->
+            <div id="icon-subtoolbar" class="subtoolbar" style="display: none;">
+                <div class="icon-toolbar-row">
+                    <select id="icon-library-select" class="dropdown-styled" title="Select Icon Library">
+                        <!-- Populated dynamically from IconEngine -->
+                    </select>
+                    <!-- Quick Color Picker -->
+                    <div class="color-picker-wrapper" title="Default Icon Color">
+                        <input type="color" id="quick-icon-color" value="#ffffff" />
+                        <span class="color-preview-dot" id="color-preview-dot"></span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Folders Sub-Toolbar (shown when tab is 'folders') -->
+            <div id="folder-subtoolbar" class="subtoolbar" style="display: none;">
+                <div class="folder-toolbar-row">
+                    <select id="linked-folder-select" class="dropdown-styled">
+                        <option value="">-- Select Linked Folder --</option>
+                    </select>
+                    <button id="btn-add-folder" class="secondary-btn" title="Link new local folder">+ Link Folder</button>
+                </div>
+            </div>
+
+            <!-- Playlists Sub-Toolbar (shown when tab is 'playlists') -->
+            <div id="playlist-subtoolbar" class="subtoolbar" style="display: none;">
+                <div class="playlist-toolbar-row">
+                    <select id="playlist-select" class="dropdown-styled">
+                        <!-- Populated dynamically -->
+                    </select>
+                    <button id="btn-new-playlist" class="secondary-btn" title="Create Playlist">+ New</button>
+                    <button id="btn-delete-playlist" class="secondary-btn danger" title="Delete current playlist">🗑️</button>
+                </div>
+            </div>
+
+            <!-- Settings Drawer (Hidden by default) -->
+            <div class="settings-drawer" id="settings-drawer" style="display: none;">
+                <div class="drawer-header">
+                    <h3>Studio Settings & Guides</h3>
+                    <button id="close-settings" class="drawer-close-btn">✕</button>
+                </div>
+
+                <!-- Host Compatibility Guide -->
+                <div class="setting-card">
+                    <div class="card-title">⚡ Host App Compatibility Guide</div>
+                    <div class="compat-table">
+                        <div class="compat-row">
+                            <span class="compat-name">After Effects (Ae):</span>
+                            <span class="compat-desc">Supports <b>Native Vector Shapes (SVG)</b>, continuous rasterization, shape stroke/fill, 3D Fluent PNG, and Live Text.</span>
+                        </div>
+                        <div class="compat-row">
+                            <span class="compat-name">Premiere Pro (Pr):</span>
+                            <span class="compat-desc">Premiere has no native SVG engine. All icons & emojis are <b>auto-rasterized to ultra-crisp 1024px PNG</b> on-the-fly and automatically placed at playhead!</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Insert Mode & Preferences -->
+                <div class="setting-item">
+                    <label>Insert Mode (AE)</label>
+                    <div class="toggle-group" id="insert-mode-toggle">
+                        <button class="toggle-btn active" data-mode="shape">Shape Layer</button>
+                        <button class="toggle-btn" data-mode="text">Text Layer</button>
+                    </div>
+                </div>
+
+                <div class="setting-item" id="shape-format-container">
+                    <label>Vector Format</label>
+                    <div class="toggle-group" id="shape-format-toggle">
+                        <button class="toggle-btn active" data-format="svg">Vector (SVG)</button>
+                        <button class="toggle-btn" data-format="png">Image (PNG)</button>
+                    </div>
+                </div>
+
+                <div class="setting-item">
+                    <label>Emoji Artwork Style</label>
+                    <select id="style-select" class="dropdown-styled">
+                        <option value="apple">Apple (iOS style)</option>
+                        <option value="google" selected>Google (Android style)</option>
+                        <option value="twitter">Twemoji (Flat vector style)</option>
+                        <option value="microsoft">Microsoft (3D Fluent style)</option>
+                    </select>
+                </div>
+
+                <div class="setting-item" id="size-control-group">
+                    <div class="label-row">
+                        <label for="size-slider">Default Insert Size</label>
+                        <span id="size-value">256px</span>
+                    </div>
+                    <input type="range" id="size-slider" min="64" max="1024" step="64" value="256">
+                </div>
+
+                <!-- API Keys & Custom CDN Guide -->
+                <div class="setting-card">
+                    <div class="card-title">🔑 Custom API Keys & Self-Hosted Endpoints</div>
+                    <p class="card-hint">
+                        All icons & emojis stream completely <b>free without any API key</b> via official open-source CDNs.
+                        If you have your own enterprise/private Iconify mirror or GitHub token for higher rate limits, enter it below:
+                    </p>
+                    <div class="input-field-group">
+                        <label>Custom Iconify API Endpoint (Optional)</label>
+                        <input type="text" id="setting-iconify-api" placeholder="Default: https://api.iconify.design" class="text-input-styled" />
+                    </div>
+                    <div class="input-field-group">
+                        <label>GitHub Personal Access Token (Optional)</label>
+                        <input type="password" id="setting-github-token" placeholder="ghp_xxxxxxxxxxxxxxxxxxxx" class="text-input-styled" />
+                    </div>
+                    <button id="btn-save-keys" class="primary-btn" style="width: 100%; margin-top: 8px;">Save API Configuration</button>
+                </div>
+
+                <!-- Project Asset Storage -->
+                <div class="setting-item">
+                    <div class="label-row">
+                        <label>Assets Storage</label>
+                        <button id="open-assets-btn" class="icon-btn-storage" title="Open persistent assets folder">📂 Open Folder</button>
+                    </div>
+                    <div class="storage-path-display" id="storage-path-display" title="Persistent safe location on your computer - never gets deleted">Documents/Emoji Library Assets</div>
+                </div>
+
+                <!-- Updates Section -->
+                <div class="setting-card">
+                    <div class="card-title">🔄 Software Updates</div>
+                    <div class="update-info-row">
+                        <span id="settings-app-version-badge" class="badge">v2.0.0</span>
+                        <button id="btn-check-updates" class="secondary-btn">Check for Updates</button>
+                    </div>
+                    <div id="settings-update-status" class="update-status-label"></div>
+                </div>
+            </div>
+
+            <!-- Composer Area (for Text Layer mode) -->
+            <div class="composer-container" id="composer-container" style="display: none;">
+                <textarea id="composer-textarea" placeholder="Type text here & click emojis below to add..."></textarea>
+                <div class="composer-actions" style="justify-content: flex-end;">
+                    <button id="insert-composer-btn" class="composer-btn" style="width: 100%;">Create Text Layer</button>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Dynamic Grid -->
+        <main class="emoji-container">
+            <div id="asset-grid" class="asset-grid">
+                <!-- Items populated dynamically -->
+            </div>
+            <div id="loading-spinner" class="loading-spinner" style="display: none;">
+                <div class="spinner"></div>
+                <span>Loading assets...</span>
+            </div>
+            <div id="no-results" class="no-results" style="display: none;">
+                No matching assets found 🧐
+            </div>
+        </main>
+        
+        <!-- Status Bar -->
+        <footer class="status-bar" id="status-bar">
+            Ready to insert
+        </footer>
+    </div>
+
+    <!-- Live Preview & Customizer Modal -->
+    <div id="customizer-modal" class="modal-backdrop" style="display: none;">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h3 id="customizer-title">Customize Icon</h3>
+                <button id="btn-close-customizer" class="drawer-close-btn">✕</button>
+            </div>
+            <div class="modal-body">
+                <!-- Preview Canvas Stage -->
+                <div class="preview-stage-container">
+                    <div class="preview-stage" id="preview-stage">
+                        <div id="preview-render-box" class="preview-render-box"></div>
+                    </div>
+                    <div class="preview-bg-toggle">
+                        <button class="bg-toggle-btn active" data-bg="dark">Dark</button>
+                        <button class="bg-toggle-btn" data-bg="light">Light</button>
+                        <button class="bg-toggle-btn" data-bg="check">Checker</button>
+                    </div>
+                </div>
+
+                <!-- Customization Controls -->
+                <div class="customizer-controls">
+                    <div class="control-row">
+                        <label>Color</label>
+                        <div class="color-picker-input-group">
+                            <input type="color" id="modal-color-picker" value="#ffffff" />
+                            <input type="text" id="modal-color-hex" value="#ffffff" class="hex-text-input" />
+                        </div>
+                    </div>
+
+                    <div class="control-row" id="stroke-control-row">
+                        <label>Stroke Width</label>
+                        <div class="slider-val-group">
+                            <input type="range" id="modal-stroke-slider" min="1" max="4" step="0.5" value="2" />
+                            <span id="modal-stroke-val">2.0px</span>
+                        </div>
+                    </div>
+
+                    <div class="control-row">
+                        <label>Output Size</label>
+                        <div class="slider-val-group">
+                            <input type="range" id="modal-size-slider" min="64" max="1024" step="64" value="256" />
+                            <span id="modal-size-val">256px</span>
+                        </div>
+                    </div>
+
+                    <!-- Add to Playlist dropdown -->
+                    <div class="control-row">
+                        <label>Add to Playlist</label>
+                        <select id="modal-playlist-select" class="dropdown-styled" style="width: auto; min-width: 140px;">
+                            <!-- Populated -->
+                        </select>
+                        <button id="btn-modal-add-playlist" class="secondary-btn" title="Save to playlist">★ Save</button>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button id="btn-cancel-customizer" class="secondary-btn">Cancel</button>
+                <button id="btn-insert-customizer" class="primary-btn">Insert into Project</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Software Update Modal Popup -->
+    <div id="update-modal" class="modal-backdrop" style="display: none;">
+        <div class="modal-card update-card">
+            <div class="modal-header">
+                <h3>Update Available!</h3>
+                <button id="btn-modal-update-close" class="drawer-close-btn">✕</button>
+            </div>
+            <div class="modal-body">
+                <div class="update-version-row">
+                    <span class="version-pill" id="modal-update-version">v2.1.0</span>
+                    <span class="current-pill" id="modal-update-current">Installed: v2.0.0</span>
+                </div>
+                <div class="release-notes-box" id="modal-update-notes">
+                    New features, icon libraries, and performance updates ready.
+                </div>
+                <div class="progress-container" id="update-progress-row" style="display: none;">
+                    <div class="progress-bar-bg">
+                        <div class="progress-bar-fill" id="update-progress-bar"></div>
+                    </div>
+                    <span class="progress-text" id="update-progress-text">Updating 0%...</span>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button id="btn-modal-update-skip" class="secondary-btn">Skip This Version</button>
+                <button id="btn-modal-update-later" class="secondary-btn">Remind Later</button>
+                <button id="btn-modal-update-now" class="primary-btn">Update Now</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Script Imports -->
+    <script src="js/CSInterface.js"></script>
+    <script src="js/emoji-db.js"></script>
+    <script src="js/settings.js"></script>
+    <script src="js/updater.js"></script>
+    <script src="js/icon-engine.js"></script>
+    <script src="js/asset-manager.js"></script>
+    <script src="js/main.js"></script>
+</body>
+</html>

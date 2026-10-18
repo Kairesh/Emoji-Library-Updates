@@ -272,16 +272,20 @@ async function renderIcons() {
 
     try {
         const icons = await IconEngine.searchIcons(query, selectedPrefix, 80);
-        loadingSpinner.style.display = 'none';
 
         if (!icons || icons.length === 0) {
+            loadingSpinner.style.display = 'none';
             noResults.style.display = 'block';
             return;
         }
 
         const quickColor = (document.getElementById('quick-icon-color') && document.getElementById('quick-icon-color').value) || '#ffffff';
 
-        icons.forEach(async (iconFullName) => {
+        // Batch-fetch all SVGs in a single HTTP request per collection
+        const svgMap = await IconEngine.fetchBatchIcons(icons, { color: quickColor, strokeWidth: 1.8 });
+        loadingSpinner.style.display = 'none';
+
+        icons.forEach((iconFullName) => {
             const card = document.createElement('div');
             card.className = 'asset-card';
             card.title = iconFullName;
@@ -295,6 +299,25 @@ async function renderIcons() {
             iconContainer.style.justifyContent = 'center';
             card.appendChild(iconContainer);
 
+            const svgContent = svgMap[iconFullName];
+            if (svgContent) {
+                iconContainer.innerHTML = svgContent;
+                const svgEl = iconContainer.querySelector('svg');
+                if (svgEl) {
+                    svgEl.style.width = '100%';
+                    svgEl.style.height = '100%';
+                    svgEl.style.pointerEvents = 'none';
+                }
+            } else {
+                // Fallback to online SVG image if not present in batch
+                const imgFallback = document.createElement('img');
+                imgFallback.src = IconEngine.buildSvgUrl(iconFullName, { color: quickColor });
+                imgFallback.style.width = '100%';
+                imgFallback.style.height = '100%';
+                imgFallback.style.pointerEvents = 'none';
+                iconContainer.appendChild(imgFallback);
+            }
+
             card.addEventListener('click', () => {
                 openCustomizer({
                     type: 'icon',
@@ -306,19 +329,6 @@ async function renderIcons() {
             });
 
             assetGrid.appendChild(card);
-
-            try {
-                const svgText = await IconEngine.fetchSvgContent(iconFullName, { color: quickColor, strokeWidth: 1.8 });
-                iconContainer.innerHTML = svgText;
-                const svgEl = iconContainer.querySelector('svg');
-                if (svgEl) {
-                    svgEl.style.width = '100%';
-                    svgEl.style.height = '100%';
-                    svgEl.style.pointerEvents = 'none';
-                }
-            } catch (err) {
-                iconContainer.innerHTML = `<span style="font-size: 11px; color: #666;">•</span>`;
-            }
         });
     } catch (err) {
         loadingSpinner.style.display = 'none';

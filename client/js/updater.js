@@ -15,9 +15,6 @@ const PluginUpdater = (function () {
 
     function getInstalledVersion() {
         try {
-            const stored = localStorage.getItem('kairesh_installed_version');
-            if (stored) return stored;
-
             if (typeof csInterface !== "undefined" && path && fs) {
                 let extDir = csInterface.getSystemPath(SystemPath.EXTENSION);
                 if (extDir.startsWith("file://")) extDir = extDir.slice(7);
@@ -31,10 +28,13 @@ const PluginUpdater = (function () {
                     if (m && m[1]) return m[1];
                 }
             }
+
+            const stored = localStorage.getItem('kairesh_installed_version');
+            if (stored) return stored;
         } catch (e) {
             console.warn("getInstalledVersion warning:", e);
         }
-        return "2.0.0";
+        return "2.1.0";
     }
 
     function compareVersions(v1, v2) {
@@ -75,15 +75,9 @@ const PluginUpdater = (function () {
         try {
             const data = await fetchManifest();
             if (!data) {
-                if (isManual) {
-                    showUpdateModal({
-                        version: "2.1.0",
-                        releaseNotes: "Could not reach update server. Check internet connection or visit GitHub directly."
-                    }, currentVer);
-                    if (sStatus) {
-                        sStatus.textContent = "Offline / Connection timeout.";
-                        sStatus.style.color = "#ff9500";
-                    }
+                if (isManual && sStatus) {
+                    sStatus.textContent = "Offline / Connection timeout.";
+                    sStatus.style.color = "#ff9500";
                 }
                 return;
             }
@@ -99,16 +93,17 @@ const PluginUpdater = (function () {
                 if (remindVer === data.version && remindTime > Date.now()) return;
             }
 
-            if (isNewer || isManual) {
+            if (isNewer) {
                 showUpdateModal(data, currentVer);
                 if (sStatus) {
-                    if (isNewer) {
-                        sStatus.textContent = `New v${data.version} available!`;
-                        sStatus.style.color = "#02a676";
-                    } else {
-                        sStatus.textContent = `You're on the latest version (v${currentVer}).`;
-                        sStatus.style.color = "#02a676";
-                    }
+                    sStatus.textContent = `New v${data.version} available!`;
+                    sStatus.style.color = "#02a676";
+                }
+            } else if (isManual) {
+                // User is already on the latest version: show inline confirmation, no intrusive modal
+                if (sStatus) {
+                    sStatus.textContent = `✓ You are on the latest version (v${currentVer})!`;
+                    sStatus.style.color = "#02a676";
                 }
             }
         } catch (err) {

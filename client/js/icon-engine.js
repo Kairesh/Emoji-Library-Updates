@@ -32,8 +32,36 @@ const IconEngine = (function () {
         { id: "line-md", name: "Line MD (Motion)", category: "animated", count: "1,100+" }
     ];
 
+    // Rich curated showcase across top libraries for the default "All Libraries" view
+    const CURATED_DEFAULT_ICONS = [
+        // UI Essentials (Lucide)
+        "lucide:home", "lucide:search", "lucide:settings", "lucide:user", "lucide:bell",
+        "lucide:mail", "lucide:camera", "lucide:heart", "lucide:star", "lucide:trash-2",
+        "lucide:check", "lucide:x", "lucide:plus", "lucide:folder", "lucide:download",
+        "lucide:upload", "lucide:share-2", "lucide:bookmark", "lucide:message-square", "lucide:sun",
+        // Media & Controls (Phosphor)
+        "ph:play-fill", "ph:pause-fill", "ph:speaker-high-fill", "ph:music-notes-fill", "ph:video-camera-fill",
+        "ph:microphone-fill", "ph:film-slate-fill", "ph:image-fill", "ph:headphones-fill", "ph:broadcast-fill",
+        "ph:lightning-fill", "ph:fire-fill", "ph:chat-circle-dots-fill", "ph:compass-fill", "ph:globe-simple-fill",
+        // Brand & Tech Logos (Simple Icons)
+        "simple-icons:youtube", "simple-icons:instagram", "simple-icons:tiktok", "simple-icons:x",
+        "simple-icons:discord", "simple-icons:spotify", "simple-icons:github", "simple-icons:figma",
+        "simple-icons:adobephotoshop", "simple-icons:adobeaftereffects", "simple-icons:adobepremierepro",
+        "simple-icons:apple", "simple-icons:twitch", "simple-icons:whatsapp", "simple-icons:google",
+        // Retro Gaming & Fun (Pixelarticons)
+        "pixelarticons:heart", "pixelarticons:zap", "pixelarticons:gamepad", "pixelarticons:trophy",
+        "pixelarticons:coin", "pixelarticons:ghost", "pixelarticons:power", "pixelarticons:music",
+        // Motion & System (Tabler & Heroicons)
+        "tabler:trending-up", "tabler:refresh", "tabler:sparkles", "tabler:flame", "tabler:wand",
+        "tabler:arrow-right", "tabler:arrow-left", "tabler:arrow-up", "tabler:arrow-down",
+        "heroicons:hand-thumb-up-solid", "heroicons:face-smile-solid", "heroicons:shield-check-solid",
+        "heroicons:clock-solid", "heroicons:calendar-days-solid"
+    ];
+
     const searchCache = new Map();
     const svgCache = new Map();
+    // Cache for batch JSON payloads: prefix -> { icons: { name: { body, width, height } }, width, height }
+    const batchDataCache = new Map();
 
     function getApiBase() {
         if (typeof Settings !== "undefined") {
@@ -45,7 +73,7 @@ const IconEngine = (function () {
         return "https://api.iconify.design";
     }
 
-    async function searchIcons(query, prefix = "all", limit = 100) {
+    async function searchIcons(query, prefix = "all", limit = 80) {
         const base = getApiBase();
         const cleanQuery = (query || "").trim();
         const cacheKey = `${cleanQuery}_${prefix}_${limit}`;
@@ -58,12 +86,8 @@ const IconEngine = (function () {
         try {
             if (!cleanQuery) {
                 if (!prefix || prefix === "all") {
-                    // Popular starter icons across diverse UI categories
-                    const url = `${base}/search?query=arrow&limit=${limit}`;
-                    const data = await Net.getJSON(url);
-                    if (data && Array.isArray(data.icons)) {
-                        iconList = data.icons;
-                    }
+                    // Return diverse curated mix across libraries
+                    iconList = CURATED_DEFAULT_ICONS.slice(0, limit);
                 } else {
                     // Load specific collection
                     const url = `${base}/collection?prefix=${prefix}`;
@@ -106,6 +130,79 @@ const IconEngine = (function () {
         }
     }
 
+    /**
+     * Batch-fetch icon definitions for multiple icons in single HTTP requests per collection.
+     * Completely prevents Cloudflare / Iconify HTTP 429 rate-limiting.
+     */
+    async function fetchBatchIcons(iconFullNames, options = {}) {
+        const base = getApiBase();
+        const color = options.color || "#ffffff";
+        const strokeWidth = options.strokeWidth || 2;
+        const results = {};
+
+        // Group icons by prefix
+        const prefixMap = {};
+        iconFullNames.forEach(full => {
+            const parts = full.split(':');
+            const p = parts.length > 1 ? parts[0] : 'ph';
+            const n = parts.length > 1 ? parts[1] : parts[0];
+            if (!prefixMap[p]) prefixMap[p] = [];
+            if (!prefixMap[p].includes(n)) prefixMap[p].push(n);
+        });
+
+        // Fetch each prefix batch concurrently
+        const fetchPromises = Object.keys(prefixMap).map(async (p) => {
+            let cachedCollection = batchDataCache.get(p) || { width: 24, height: 24, icons: {} };
+            const missingNames = prefixMap[p].filter(n => !cachedCollection.icons[n]);
+
+            if (missingNames.length > 0) {
+                try {
+                    const batchUrl = `${base}/${p}.json?icons=${missingNames.join(',')}`;
+                    const json = await Net.getJSON(batchUrl);
+                    if (json && json.icons) {
+                        cachedCollection.width = json.width || cachedCollection.width;
+                        cachedCollection.height = json.height || cachedCollection.height;
+                        for (const name in json.icons) {
+                            cachedCollection.icons[name] = json.icons[name];
+                        }
+                        if (json.aliases) {
+                            for (const alias in json.aliases) {
+                                const parentKey = json.aliases[alias].parent;
+                                if (json.icons[parentKey]) {
+                                    cachedCollection.icons[alias] = json.icons[parentKey];
+                                }
+                            }
+                        }
+                        batchDataCache.set(p, cachedCollection);
+                    }
+                } catch (err) {
+                    console.warn(`Batch fetch failed for prefix ${p}:`, err);
+                }
+            }
+
+            // Build SVGs for requested names in this prefix
+            prefixMap[p].forEach(name => {
+                const iconObj = cachedCollection.icons[name];
+                const fullKey = `${p}:${name}`;
+                if (iconObj && iconObj.body) {
+                    const w = iconObj.width || cachedCollection.width || 24;
+                    const h = iconObj.height || cachedCollection.height || 24;
+                    let body = iconObj.body;
+                    if (color) {
+                        body = body.replace(/currentColor/g, color);
+                    }
+                    if (strokeWidth && strokeWidth !== 2) {
+                        body = body.replace(/stroke-width="[^"]*"/g, `stroke-width="${strokeWidth}"`);
+                    }
+                    results[fullKey] = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${w} ${h}" width="100%" height="100%">${body}</svg>`;
+                }
+            });
+        });
+
+        await Promise.all(fetchPromises);
+        return results;
+    }
+
     function buildSvgUrl(iconFullName, options = {}) {
         const base = getApiBase();
         const color = options.color || "#ffffff";
@@ -116,6 +213,28 @@ const IconEngine = (function () {
     }
 
     async function fetchSvgContent(iconFullName, options = {}) {
+        const color = options.color || "#ffffff";
+        const strokeWidth = options.strokeWidth || 2;
+
+        // Check if already in batch data cache
+        const parts = iconFullName.split(':');
+        const p = parts.length > 1 ? parts[0] : 'ph';
+        const n = parts.length > 1 ? parts[1] : parts[0];
+        const cachedCollection = batchDataCache.get(p);
+        if (cachedCollection && cachedCollection.icons && cachedCollection.icons[n]) {
+            const iconObj = cachedCollection.icons[n];
+            const w = iconObj.width || cachedCollection.width || 24;
+            const h = iconObj.height || cachedCollection.height || 24;
+            let body = iconObj.body;
+            if (color) {
+                body = body.replace(/currentColor/g, color);
+            }
+            if (strokeWidth && strokeWidth !== 2) {
+                body = body.replace(/stroke-width="[^"]*"/g, `stroke-width="${strokeWidth}"`);
+            }
+            return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${w} ${h}" width="100%" height="100%">${body}</svg>`;
+        }
+
         const svgUrl = buildSvgUrl(iconFullName, options);
         if (svgCache.has(svgUrl)) {
             return svgCache.get(svgUrl);
@@ -146,6 +265,7 @@ const IconEngine = (function () {
     return {
         collections: COLLECTIONS,
         searchIcons: searchIcons,
+        fetchBatchIcons: fetchBatchIcons,
         buildSvgUrl: buildSvgUrl,
         fetchSvgContent: fetchSvgContent
     };

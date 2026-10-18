@@ -6,13 +6,36 @@ var EMOJI_HOST = {
         $.writeln("[Emoji Plugin] " + msg);
     },
 
-    // Detect Host App
+    // Bulletproof Host App Detection
+    isPremiereHost: function() {
+        try {
+            if (typeof BridgeTalk !== "undefined" && BridgeTalk.appName) {
+                return BridgeTalk.appName.toLowerCase().indexOf("premiere") !== -1;
+            }
+            if (typeof app !== "undefined") {
+                if (app.name && app.name.toLowerCase().indexOf("premiere") !== -1) return true;
+                if (app.project && typeof app.project.importFiles === "function") return true;
+            }
+        } catch (_) {}
+        return false;
+    },
+
+    isAfterEffectsHost: function() {
+        try {
+            if (typeof BridgeTalk !== "undefined" && BridgeTalk.appName) {
+                return BridgeTalk.appName.toLowerCase().indexOf("aftereffects") !== -1;
+            }
+            if (typeof app !== "undefined") {
+                if (app.name && app.name.toLowerCase().indexOf("after effects") !== -1) return true;
+                if (typeof FolderItem !== "undefined" || (app.project && typeof app.project.importFile === "function")) return true;
+            }
+        } catch (_) {}
+        return false;
+    },
+
     getHost: function() {
-        if (app.name.indexOf("After Effects") !== -1) {
-            return "AEFT";
-        } else if (app.name.indexOf("Premiere") !== -1) {
-            return "PPRO";
-        }
+        if (this.isPremiereHost()) return "PPRO";
+        if (this.isAfterEffectsHost()) return "AEFT";
         return "UNKNOWN";
     },
 
@@ -54,14 +77,15 @@ var EMOJI_HOST = {
         return "";
     },
 
-    // ----------------------------------------------------
-    // UNIFIED HOST DISPATCHER
-    // ----------------------------------------------------
     insertFootage: function(filePath, assetName, size, convertToShape, isAnimated) {
-        if (app.name.indexOf("Premiere") !== -1) {
-            return this.prInsertFootage(filePath, assetName);
-        } else {
-            return this.aeInsertFootage(filePath, assetName, size, convertToShape, isAnimated);
+        try {
+            if (this.isPremiereHost()) {
+                return this.prInsertFootage(filePath, assetName);
+            } else {
+                return this.aeInsertFootage(filePath, assetName, size, convertToShape, isAnimated);
+            }
+        } catch (e) {
+            return "ERROR: " + e.toString();
         }
     },
 
@@ -107,7 +131,7 @@ var EMOJI_HOST = {
     // AFTER EFFECTS SPECIFIC METHODS
     // ----------------------------------------------------
     aeInsertText: function(textString, size, useOriginalColor) {
-        if (app.name.indexOf("Premiere") !== -1) {
+        if (this.isPremiereHost()) {
             return "ERROR: Text layers are only supported in After Effects. Please insert as PNG/SVG emoji in Premiere Pro.";
         }
         var comp = app.project.activeItem;
@@ -205,7 +229,7 @@ var EMOJI_HOST = {
 
     aeInsertFootage: function(filePath, emojiName, targetSize, convertToShape, isAnimated) {
         // Absolute safety guard: If invoked inside Premiere Pro, immediately route to prInsertFootage!
-        if (app.name.indexOf("Premiere") !== -1) {
+        if (this.isPremiereHost()) {
             return this.prInsertFootage(filePath, emojiName);
         }
 
@@ -397,10 +421,21 @@ var EMOJI_HOST = {
     // ----------------------------------------------------
     prInsertFootage: function(filePath, emojiName) {
         try {
+            var file = new File(filePath);
+            if (!file.exists) {
+                return "ERROR: File does not exist on disk: " + filePath;
+            }
+
+            var nativePath = file.fsName;
+            var cleanPath = file.fsName.replace(/\\/g, '/');
+            var root = app.project.rootItem;
+            if (!root) {
+                return "ERROR: No active Premiere Pro project found.";
+            }
+
             // Find or create "Icons" bin in Premiere Pro Project panel
             var iconsBin = null;
-            var root = app.project.rootItem;
-            if (root && root.children) {
+            if (root.children) {
                 for (var b = 0; b < root.children.numItems; b++) {
                     var cBin = root.children[b];
                     if (cBin && cBin.type === 2 && cBin.name === "Icons") { // 2 = BIN
@@ -417,32 +452,100 @@ var EMOJI_HOST = {
                 }
             }
 
-            // First check if the item is already in project bins to avoid duplicates
-            var projectItem = this.prFindProjectItemByPath(filePath);
-            
+            // First check if the item is already in project to avoid duplicates
+            var projectItem = this.prSearchBin(iconsBin, nativePath) || this.prSearchBin(root, nativePath);
+
             if (!projectItem) {
-                var filePaths = [filePath];
-                var targetBin = iconsBin || (app.project.getInsertionBin ? app.project.getInsertionBin() : root);
-                var success = app.project.importFiles(filePaths, true, targetBin, false);
-                if (!success) {
-                    return "ERROR: Premiere failed to import the file.";
+                var prevIconsCount = (iconsBin && iconsBin.children) ? iconsBin.children.numItems : 0;
+                var prevRootCount = (root && root.children) ? root.children.numItems : 0;
+                var didImport = false;
+
+                // Attempt 1: Try importing directly into iconsBin if distinct from root
+                if (iconsBin && iconsBin !== root) {
+                    try {
+                        didImport = app.project.importFiles([nativePath], true, iconsBin, false);
+                    } catch (_) {
+                        try {
+                            didImport = app.project.importFiles([cleanPath], true, iconsBin, false);
+                        } catch (_) {}
+                    }
+
+                    // Check if item landed directly in iconsBin
+                    if (iconsBin.children && iconsBin.children.numItems > prevIconsCount) {
+                        for (var ci = iconsBin.children.numItems - 1; ci >= 0; ci--) {
+                            var cand = iconsBin.children[ci];
+                            if (cand && cand.type !== 2) {
+                                projectItem = cand;
+                                break;
+                            }
+                        }
+                    }
                 }
-                projectItem = this.prFindProjectItemByPath(filePath);
+
+                // Attempt 2: Import into rootItem with retry loop (bypasses Premiere sub-bin import bugs)
+                if (!projectItem) {
+                    for (var attempt = 0; attempt < 3 && !projectItem; attempt++) {
+                        if (attempt > 0) {
+                            try { $.sleep(150); } catch (_) {}
+                        }
+                        try {
+                            var r1 = app.project.importFiles([nativePath], true, root, false);
+                            didImport = didImport || r1;
+                        } catch (_) {
+                            try {
+                                var r2 = app.project.importFiles([cleanPath], true, root, false);
+                                didImport = didImport || r2;
+                            } catch (_) {
+                                try {
+                                    var r3 = app.project.importFiles([nativePath], true);
+                                    didImport = didImport || r3;
+                                } catch (_) {}
+                            }
+                        }
+
+                        // Detect newly added item in rootItem
+                        if (root.children && root.children.numItems > prevRootCount) {
+                            for (var ri = root.children.numItems - 1; ri >= 0; ri--) {
+                                var rCand = root.children[ri];
+                                if (rCand && rCand.type !== 2) {
+                                    projectItem = rCand;
+                                    break;
+                                }
+                            }
+                        }
+
+                        if (!projectItem) {
+                            projectItem = this.prSearchBin(iconsBin, nativePath) || this.prSearchBin(root, nativePath);
+                        }
+                    }
+                }
+
+                // Attempt 3: Final fallback scan
+                if (!projectItem) {
+                    try { $.sleep(150); } catch (_) {}
+                    projectItem = this.prSearchBin(iconsBin, nativePath) || this.prSearchBin(root, nativePath);
+                }
             }
 
             if (!projectItem) {
-                return "ERROR: Could not find imported item in project bin.";
+                return "ERROR: Premiere failed to import file into project bins.";
             }
 
-            // Move into Icons bin if not already inside
-            if (projectItem && iconsBin && projectItem.parent !== iconsBin) {
+            // Move into Icons bin if Premiere placed it in rootItem
+            if (iconsBin && iconsBin !== root && projectItem.parent !== iconsBin) {
                 try {
-                    projectItem.move(iconsBin);
+                    if (typeof projectItem.moveBin === "function") {
+                        projectItem.moveBin(iconsBin);
+                    } else if (typeof projectItem.move === "function") {
+                        projectItem.move(iconsBin);
+                    }
                 } catch (mvErr) {}
             }
 
             // Name the item nicely
-            projectItem.name = "Emoji - " + emojiName;
+            try {
+                projectItem.name = "Emoji - " + emojiName;
+            } catch (_) {}
 
             var activeSeq = app.project.activeSequence;
             if (!activeSeq) {
@@ -450,40 +553,35 @@ var EMOJI_HOST = {
             }
 
             var playheadTime = activeSeq.getPlayerPosition();
-            var inserted = false;
-            var numTracks = activeSeq.videoTracks.numTracks;
-            var targetTrack = null;
-
-            // Search for an available video track at playhead, preferring upper tracks (V2, V3...)
-            for (var t = 1; t < numTracks; t++) {
-                var vt = activeSeq.videoTracks[t];
-                var isOccupied = false;
-                for (var c = 0; c < vt.clips.numItems; c++) {
-                    var clip = vt.clips[c];
-                    if (playheadTime.ticks >= clip.start.ticks && playheadTime.ticks < clip.end.ticks) {
-                        isOccupied = true;
-                        break;
-                    }
-                }
-                if (!isOccupied) {
-                    targetTrack = vt;
-                    break;
+            var pSec = 0;
+            if (playheadTime) {
+                if (playheadTime.seconds !== undefined) {
+                    pSec = playheadTime.seconds;
+                } else {
+                    pSec = parseFloat(playheadTime) || 0;
                 }
             }
 
-            // If higher tracks are busy, check V1
-            if (!targetTrack && numTracks > 0) {
-                var v0 = activeSeq.videoTracks[0];
-                var v0Occupied = false;
-                for (var c0 = 0; c0 < v0.clips.numItems; c0++) {
-                    var clip0 = v0.clips[c0];
-                    if (playheadTime.ticks >= clip0.start.ticks && playheadTime.ticks < clip0.end.ticks) {
-                        v0Occupied = true;
-                        break;
+            var numTracks = (activeSeq.videoTracks && activeSeq.videoTracks.numTracks) ? activeSeq.videoTracks.numTracks : 0;
+            var targetTrack = null;
+
+            // Search for an available video track at playhead (top-down to prefer upper overlay tracks)
+            for (var t = numTracks - 1; t >= 0; t--) {
+                var vt = activeSeq.videoTracks[t];
+                if (!vt || !vt.clips) continue;
+                var collision = false;
+                for (var c = 0; c < vt.clips.numItems; c++) {
+                    var clip = vt.clips[c];
+                    if (clip && clip.start && clip.end) {
+                        if (clip.start.seconds <= pSec && clip.end.seconds > pSec) {
+                            collision = true;
+                            break;
+                        }
                     }
                 }
-                if (!v0Occupied) {
-                    targetTrack = v0;
+                if (!collision) {
+                    targetTrack = vt;
+                    break;
                 }
             }
 
@@ -492,17 +590,15 @@ var EMOJI_HOST = {
                 targetTrack = activeSeq.videoTracks[numTracks - 1];
             }
 
+            var inserted = false;
             if (targetTrack) {
-                try {
-                    // Non-destructive overwrite at playhead
-                    targetTrack.overwriteClip(projectItem, playheadTime);
-                    inserted = true;
-                } catch (eOverwrite) {
-                    try {
-                        targetTrack.insertClip(projectItem, playheadTime);
-                        inserted = true;
-                    } catch (eInsert) {}
+                try { targetTrack.insertClip(projectItem, playheadTime); inserted = true; } catch (_) {}
+                if (!inserted) { try { targetTrack.insertClip(projectItem, pSec); inserted = true; } catch (_) {} }
+                if (!inserted && typeof targetTrack.overwriteClip === "function") {
+                    try { targetTrack.overwriteClip(projectItem, playheadTime); inserted = true; } catch (_) {}
+                    if (!inserted) { try { targetTrack.overwriteClip(projectItem, pSec); inserted = true; } catch (_) {} }
                 }
+                if (!inserted) { try { targetTrack.insertClip(projectItem, "0"); inserted = true; } catch (_) {} }
             }
 
             if (!inserted) {
@@ -520,22 +616,34 @@ var EMOJI_HOST = {
     },
 
     prSearchBin: function(folder, filePath) {
-        // Normalize paths for comparison (replace backslashes)
-        var normTarget = filePath.replace(/\\/g, "/").toLowerCase();
-        
+        if (!folder || !folder.children) return null;
+        var file = new File(filePath);
+        var normTarget = file.fsName ? file.fsName.replace(/\\/g, "/").toLowerCase() : filePath.replace(/\\/g, "/").toLowerCase();
+        var baseName = file.name ? file.name.toLowerCase() : "";
+
         for (var i = 0; i < folder.children.numItems; i++) {
             var child = folder.children[i];
-            if (child.type === 2) { // ProjectItemType.BIN is 2
+            if (!child) continue;
+            if (child.type === 2) { // Bin
                 var found = this.prSearchBin(child, filePath);
                 if (found) return found;
-            } else if (child.type === 1) { // ProjectItemType.CLIP is 1
-                var mediaPath = child.getMediaPath();
-                if (mediaPath) {
-                    var normChild = mediaPath.replace(/\\/g, "/").toLowerCase();
-                    if (normChild === normTarget) {
+            } else { // Non-bin (clips, stills, files)
+                try {
+                    if (child.getMediaPath) {
+                        var mediaPath = child.getMediaPath();
+                        if (mediaPath) {
+                            var normChild = mediaPath.replace(/\\/g, "/").toLowerCase();
+                            if (normChild === normTarget) {
+                                return child;
+                            }
+                        }
+                    }
+                } catch (_) {}
+                try {
+                    if (baseName && child.name && child.name.toLowerCase() === baseName) {
                         return child;
                     }
-                }
+                } catch (_) {}
             }
         }
         return null;

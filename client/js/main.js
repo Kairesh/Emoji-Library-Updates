@@ -1466,10 +1466,14 @@ function triggerHostImport(filePath, assetName, size, isAnimated = false) {
     const convertToShape = (!isPremiere && currentFormat === 'svg' && filePath.toLowerCase().endsWith('.svg'));
     const script = `EMOJI_HOST.insertFootage("${safePath}", "${safeName}", ${size || 256}, ${convertToShape}, ${isAnimated})`;
     csInterface.evalScript(script, (result) => {
-        if (!result || result.indexOf('ERROR') === -1) {
+        const resStr = (result || "").trim();
+        const isEvalError = resStr.toLowerCase().indexOf("evalscript error") !== -1;
+        const isGenericError = resStr.toLowerCase().indexOf("error") !== -1 && !resStr.startsWith("SUCCESS");
+
+        if (resStr && !isEvalError && !isGenericError && (resStr.startsWith("SUCCESS") || resStr.indexOf("ERROR") === -1)) {
             let msg = `Inserted ${assetName} successfully!`;
-            if (result && result.indexOf('SUCCESS:') !== -1) {
-                msg = result.replace('SUCCESS:', '').trim();
+            if (resStr.indexOf('SUCCESS:') !== -1) {
+                msg = resStr.replace('SUCCESS:', '').trim();
             } else if (isPremiere) {
                 msg = `Inserted ${assetName} into Premiere timeline & Icons bin!`;
             } else {
@@ -1477,7 +1481,9 @@ function triggerHostImport(filePath, assetName, size, isAnimated = false) {
             }
             updateStatus(msg, 'success');
         } else {
-            updateStatus(result, 'error');
+            const errDetail = resStr || "Host script returned empty response or crashed.";
+            console.error("Host import failed:", errDetail);
+            updateStatus(`Import failed: ${errDetail}`, 'error');
         }
     });
 }

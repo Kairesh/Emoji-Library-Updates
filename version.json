@@ -1,8 +1,8 @@
 {
-  "version": "2.8.0",
+  "version": "2.8.1",
   "name": "Emoji & Icon Studio by Kairesh",
   "zxpUrl": "https://raw.githubusercontent.com/Kairesh/Emoji-Library-Updates/main/Emoji-Library.zxp",
   "backupZxpUrl": "https://cdn.jsdelivr.net/gh/Kairesh/Emoji-Library-Updates@main/Emoji-Library.zxp",
   "updateUrl": "https://github.com/Kairesh/Emoji-Library-Updates/releases/latest",
-  "releaseNotes": "v2.8.0 Master Studio & Host Update!\n• Fixed Premiere Pro 'ERROR: Please select or open a Composition first' completely\n• Host-Specific Defaults: Native Vector Shape Layers for After Effects, Ultra-Crisp 1024px PNG for Premiere Pro\n• Auto-creates 'Icons' bin in Premiere Pro and 'Icons' folder in After Effects Project panel\n• MediaFetch PNG / JPG / SVG format selector for clipboard image paste\n• Fixed Update Modal z-index: popups now reliably display in front of settings drawer\n• One-click update inside the plugin"
+  "releaseNotes": "v2.8.1 Premiere Pro Timeline & Bin Insertion Fix!\n• Fixed Premiere Pro icon import: now reliably imports into 'Icons' bin and places on active timeline track at playhead\n• Bulletproof item detection avoiding Premiere sub-bin import bugs\n• Error reporting fixes: no more false success messages when host script fails\n• Update modal popup works smoothly both automatically and via Check for Updates button"
 }

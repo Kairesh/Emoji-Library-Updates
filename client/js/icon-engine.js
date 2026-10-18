@@ -36,61 +36,72 @@ const IconEngine = (function () {
     const svgCache = new Map();
 
     function getApiBase() {
-        const customUrl = Settings.get('iconifyCustomApiUrl');
-        if (customUrl && customUrl.trim().length > 0) {
-            return customUrl.trim().replace(/\/$/, "");
+        if (typeof Settings !== "undefined") {
+            const customUrl = Settings.get('iconifyCustomApiUrl');
+            if (customUrl && customUrl.trim().length > 0) {
+                return customUrl.trim().replace(/\/$/, "");
+            }
         }
         return "https://api.iconify.design";
     }
 
-    async function searchIcons(query, prefix = "all", limit = 60) {
+    async function searchIcons(query, prefix = "all", limit = 100) {
         const base = getApiBase();
-        const cacheKey = `${query}_${prefix}_${limit}`;
+        const cleanQuery = (query || "").trim();
+        const cacheKey = `${cleanQuery}_${prefix}_${limit}`;
         if (searchCache.has(cacheKey)) {
             return searchCache.get(cacheKey);
         }
 
-        let url = "";
-        if (!query || query.trim().length === 0) {
-            if (!prefix || prefix === "all") {
-                // When browsing "All Libraries", load popular UI & tech creator icons
-                url = `${base}/search?query=arrow%20user%20heart%20star%20video%20check%20search%20home&limit=${limit}`;
-            } else {
-                url = `${base}/collection?prefix=${prefix}`;
-            }
-        } else {
-            const encodedQuery = encodeURIComponent(query.trim());
-            if (prefix && prefix !== "all") {
-                url = `${base}/search?query=${encodedQuery}&prefixes=${prefix}&limit=${limit}`;
-            } else {
-                url = `${base}/search?query=${encodedQuery}&limit=${limit}`;
-            }
-        }
+        let iconList = [];
 
         try {
-            const resp = await fetch(url);
-            if (!resp.ok) throw new Error("Search network error");
-            const data = await resp.json();
-
-            let iconList = [];
-            if (data.icons && Array.isArray(data.icons)) {
-                iconList = data.icons;
-            } else if (data.uncategorized || data.categories) {
-                // If collection endpoint was returned
-                if (data.uncategorized) iconList = iconList.concat(data.uncategorized);
-                if (data.categories) {
-                    for (const catName in data.categories) {
-                        iconList = iconList.concat(data.categories[catName]);
+            if (!cleanQuery) {
+                if (!prefix || prefix === "all") {
+                    // Popular starter icons across diverse UI categories
+                    const url = `${base}/search?query=arrow&limit=${limit}`;
+                    const data = await Net.getJSON(url);
+                    if (data && Array.isArray(data.icons)) {
+                        iconList = data.icons;
+                    }
+                } else {
+                    // Load specific collection
+                    const url = `${base}/collection?prefix=${prefix}`;
+                    const data = await Net.getJSON(url);
+                    if (data) {
+                        const p = data.prefix || prefix;
+                        let names = [];
+                        if (Array.isArray(data.uncategorized)) {
+                            names = names.concat(data.uncategorized);
+                        }
+                        if (data.categories) {
+                            for (const catName in data.categories) {
+                                if (Array.isArray(data.categories[catName])) {
+                                    names = names.concat(data.categories[catName]);
+                                }
+                            }
+                        }
+                        iconList = names.slice(0, limit).map(n => `${p}:${n}`);
                     }
                 }
-                const p = data.prefix || prefix;
-                iconList = iconList.slice(0, limit).map(name => `${p}:${name}`);
+            } else {
+                const encodedQuery = encodeURIComponent(cleanQuery);
+                let url = "";
+                if (prefix && prefix !== "all") {
+                    url = `${base}/search?query=${encodedQuery}&prefixes=${prefix}&limit=${limit}`;
+                } else {
+                    url = `${base}/search?query=${encodedQuery}&limit=${limit}`;
+                }
+                const data = await Net.getJSON(url);
+                if (data && Array.isArray(data.icons)) {
+                    iconList = data.icons;
+                }
             }
 
             searchCache.set(cacheKey, iconList);
             return iconList;
         } catch (e) {
-            console.warn("Icon search failed:", e);
+            console.warn("Icon search error:", e);
             return [];
         }
     }
@@ -98,12 +109,9 @@ const IconEngine = (function () {
     function buildSvgUrl(iconFullName, options = {}) {
         const base = getApiBase();
         const color = options.color || "#ffffff";
-        const strokeWidth = options.strokeWidth || 2;
         const encodedColor = encodeURIComponent(color);
         const w = options.width || 32;
         const h = options.height || 32;
-        
-        // Iconify allows query parameters: ?color=#fff&width=32&height=32
         return `${base}/${iconFullName}.svg?color=${encodedColor}&width=${w}&height=${h}`;
     }
 
@@ -114,9 +122,10 @@ const IconEngine = (function () {
         }
 
         try {
-            const resp = await fetch(svgUrl);
-            if (!resp.ok) throw new Error("Failed to load SVG");
-            let svgText = await resp.text();
+            let svgText = await Net.get(svgUrl);
+            if (!svgText || !svgText.includes('<svg')) {
+                throw new Error("Invalid SVG received");
+            }
 
             // Apply stroke width override dynamically if needed
             if (options.strokeWidth && options.strokeWidth !== 2) {

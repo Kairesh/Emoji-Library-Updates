@@ -1,8 +1,8 @@
 {
-  "version": "2.0.0",
+  "version": "2.1.0",
   "name": "Emoji & Icon Studio by Kairesh",
-  "zxpUrl": "https://raw.githubusercontent.com/Kairesh/Emoji-Library-Updates/main/Emoji-Library-v2.0.0.zxp",
-  "backupZxpUrl": "https://cdn.jsdelivr.net/gh/Kairesh/Emoji-Library-Updates@main/Emoji-Library-v2.0.0.zxp",
+  "zxpUrl": "https://raw.githubusercontent.com/Kairesh/Emoji-Library-Updates/main/Emoji-Library-v2.1.0.zxp",
+  "backupZxpUrl": "https://cdn.jsdelivr.net/gh/Kairesh/Emoji-Library-Updates@main/Emoji-Library-v2.1.0.zxp",
   "updateUrl": "https://github.com/Kairesh/Emoji-Library-Updates/releases/latest",
-  "releaseNotes": "v2.0.0: Complete Studio Upgrade! Online On-Demand streaming for 200,000+ vector icons (Lucide, Phosphor, Tabler, Heroicons, Brand Logos, Retro Pixels), custom playlists & favorites, local PC folder scanning, live customization modal (color/hex, stroke width, size, light/dark contrast test), and native Adobe dark theme UI."
+  "releaseNotes": "v2.1.0 Update: Complete Studio Fix & Enhancements!\n• 200,000+ vector icons stream smoothly via high-speed Node network\n• Fixed After Effects SVG outline creation (pure vector shape layers)\n• All icon libraries (Lucide, Phosphor, Tabler, Heroicons, Brand Logos) render crisply with zero broken images\n• Fully interactive settings drawer with customizable insert size, API configs, and asset storage\n• In-app automatic update manager with Skip and Remind Later options."
 }

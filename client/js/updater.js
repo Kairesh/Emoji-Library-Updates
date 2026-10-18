@@ -3,6 +3,11 @@
  * Powered by GitHub repository releases & version.json
  */
 const PluginUpdater = (function () {
+    const fs = (typeof window !== "undefined" && window.require) ? window.require('fs') : (typeof require !== "undefined" ? require('fs') : null);
+    const path = (typeof window !== "undefined" && window.require) ? window.require('path') : (typeof require !== "undefined" ? require('path') : null);
+    const os = (typeof window !== "undefined" && window.require) ? window.require('os') : (typeof require !== "undefined" ? require('os') : null);
+    const cp = (typeof window !== "undefined" && window.require) ? window.require('child_process') : (typeof require !== "undefined" ? require('child_process') : null);
+
     const MANIFEST_URLS = [
         "https://raw.githubusercontent.com/Kairesh/Emoji-Library-Updates/main/version.json",
         "https://cdn.jsdelivr.net/gh/Kairesh/Emoji-Library-Updates@main/version.json"
@@ -10,25 +15,26 @@ const PluginUpdater = (function () {
 
     function getInstalledVersion() {
         try {
-            // First check if user completed in-app update
             const stored = localStorage.getItem('kairesh_installed_version');
             if (stored) return stored;
 
-            let extDir = csInterface.getSystemPath(SystemPath.EXTENSION);
-            if (extDir.startsWith("file://")) extDir = extDir.slice(7);
-            extDir = decodeURIComponent(extDir);
-            if (extDir.charAt(0) === '/' && extDir.charAt(2) === ':') extDir = extDir.slice(1);
+            if (typeof csInterface !== "undefined" && path && fs) {
+                let extDir = csInterface.getSystemPath(SystemPath.EXTENSION);
+                if (extDir.startsWith("file://")) extDir = extDir.slice(7);
+                extDir = decodeURIComponent(extDir);
+                if (extDir.charAt(0) === '/' && extDir.charAt(2) === ':') extDir = extDir.slice(1);
 
-            const manifestPath = path.join(extDir, "CSXS", "manifest.xml");
-            if (fs.existsSync(manifestPath)) {
-                const xml = fs.readFileSync(manifestPath, 'utf8');
-                const m = xml.match(/ExtensionBundleVersion="([^"]+)"/);
-                if (m && m[1]) return m[1];
+                const manifestPath = path.join(extDir, "CSXS", "manifest.xml");
+                if (fs.existsSync(manifestPath)) {
+                    const xml = fs.readFileSync(manifestPath, 'utf8');
+                    const m = xml.match(/ExtensionBundleVersion="([^"]+)"/);
+                    if (m && m[1]) return m[1];
+                }
             }
         } catch (e) {
-            // ignore
+            console.warn("getInstalledVersion warning:", e);
         }
-        return "1.9.9"; // Fallback to prompt update
+        return "2.0.0";
     }
 
     function compareVersions(v1, v2) {
@@ -47,13 +53,10 @@ const PluginUpdater = (function () {
         for (const url of MANIFEST_URLS) {
             try {
                 const bustUrl = url + (url.includes('?') ? '&' : '?') + '_t=' + Date.now();
-                const resp = await fetch(bustUrl, { cache: 'no-store' });
-                if (resp.ok) {
-                    const data = await resp.json();
-                    if (data && data.version) return data;
-                }
+                const data = await Net.getJSON(bustUrl);
+                if (data && data.version) return data;
             } catch (e) {
-                // Try next mirror
+                console.warn(`Manifest mirror failed for ${url}:`, e.message);
             }
         }
         return null;
@@ -62,7 +65,6 @@ const PluginUpdater = (function () {
     async function checkForUpdates(isManual = false) {
         const sStatus = document.getElementById('settings-update-status');
         const btnCheck = document.getElementById('btn-check-updates');
-        const modal = document.getElementById('update-modal');
 
         const currentVer = getInstalledVersion();
         if (isManual && btnCheck) {
@@ -73,9 +75,16 @@ const PluginUpdater = (function () {
         try {
             const data = await fetchManifest();
             if (!data) {
-                if (isManual && sStatus) {
-                    sStatus.textContent = "Could not check for updates. Verify internet connection.";
-                    sStatus.style.color = "#ff9500";
+                if (isManual) {
+                    // Even if network fails, show manual fallback modal
+                    showUpdateModal({
+                        version: "2.0.1",
+                        releaseNotes: "Could not reach update server. Check internet connection or visit GitHub directly."
+                    }, currentVer);
+                    if (sStatus) {
+                        sStatus.textContent = "Offline / Connection timeout.";
+                        sStatus.style.color = "#ff9500";
+                    }
                 }
                 return;
             }
@@ -83,34 +92,24 @@ const PluginUpdater = (function () {
             const isNewer = compareVersions(data.version, currentVer) > 0;
 
             if (!isManual) {
-                // Check if skipped
                 const skipped = Settings.get('skipUpdateVersion');
                 if (isNewer && skipped === data.version) return;
 
-                // Check remind later (24 hours)
                 const remindVer = Settings.get('remindLaterVersion');
                 const remindTime = Settings.get('remindLaterTime') || 0;
                 if (remindVer === data.version && remindTime > Date.now()) return;
             }
 
-            if (isNewer) {
+            if (isNewer || isManual) {
                 showUpdateModal(data, currentVer);
                 if (sStatus) {
-                    sStatus.textContent = `New v${data.version} available!`;
-                    sStatus.style.color = "#02a676";
-                }
-            } else {
-                if (isManual) {
-                    // Show modal info confirming they are on the latest version or show release notes
-                    showUpdateModal(data, currentVer);
-                    const btnInstall = document.getElementById('btn-modal-update-now');
-                    if (btnInstall) {
-                        btnInstall.textContent = "Reinstall v" + data.version;
+                    if (isNewer) {
+                        sStatus.textContent = `New v${data.version} available!`;
+                        sStatus.style.color = "#02a676";
+                    } else {
+                        sStatus.textContent = `You're on the latest version (v${currentVer}).`;
+                        sStatus.style.color = "#02a676";
                     }
-                }
-                if (isManual && sStatus) {
-                    sStatus.textContent = `You're on the latest version (v${currentVer}).`;
-                    sStatus.style.color = "#02a676";
                 }
             }
         } catch (err) {
@@ -165,6 +164,9 @@ const PluginUpdater = (function () {
         }
 
         if (btnInstall) {
+            const isNewer = compareVersions(data.version, currentVer) > 0;
+            btnInstall.textContent = isNewer ? "Update Now" : "Reinstall v" + data.version;
+            btnInstall.disabled = false;
             btnInstall.onclick = async () => {
                 btnInstall.disabled = true;
                 await performUpdate(data);
@@ -186,34 +188,34 @@ const PluginUpdater = (function () {
         try {
             updateStatus(10, "Fetching package info...");
             const packageUrl = data.zxpUrl || data.backupZxpUrl || data.packageUrl;
-            
+
             if (packageUrl && (packageUrl.endsWith('.zxp') || packageUrl.endsWith('.zip'))) {
-                updateStatus(30, "Downloading latest update package...");
-                // Download package to temp
+                updateStatus(25, "Downloading update package...");
                 const tempZxp = path.join(os.tmpdir(), `Emoji_Library_v${data.version}.zxp`);
                 const tempZip = path.join(os.tmpdir(), `Emoji_Library_v${data.version}.zip`);
-                await downloadFile(packageUrl, tempZxp, (p) => {
-                    updateStatus(30 + Math.floor(p * 0.4), `Downloading (${Math.floor(p)}%)...`);
+
+                await Net.downloadFile(packageUrl, tempZxp, (p) => {
+                    updateStatus(25 + Math.floor(p * 0.45), `Downloading (${Math.floor(p)}%)...`);
                 });
+
                 fs.copyFileSync(tempZxp, tempZip);
 
                 updateStatus(75, "Extracting update into plugin directory...");
-                // Determine extension dir
                 let extDir = csInterface.getSystemPath(SystemPath.EXTENSION);
                 if (extDir.startsWith("file://")) extDir = extDir.slice(7);
                 extDir = decodeURIComponent(extDir);
                 if (extDir.charAt(0) === '/' && extDir.charAt(2) === ':') extDir = extDir.slice(1);
 
-                // Use PowerShell to unzip into extension dir
                 const psExtract = `Expand-Archive -Path "${tempZip}" -DestinationPath "${extDir}" -Force`;
-                const { exec } = require('child_process');
-                await new Promise((res, rej) => {
-                    exec(`powershell -Command "${psExtract}"`, (err) => {
-                        if (err) {
-                            console.warn("PowerShell extract fallback:", err);
-                        }
+                await new Promise((res) => {
+                    if (cp) {
+                        cp.exec(`powershell -Command "${psExtract}"`, (err) => {
+                            if (err) console.warn("Extract error:", err);
+                            res();
+                        });
+                    } else {
                         res();
-                    });
+                    }
                 });
 
                 // Save installed version permanently
@@ -224,47 +226,15 @@ const PluginUpdater = (function () {
                     window.location.reload();
                 }, 1200);
             } else {
-                // If packageUrl is a web page, open in default browser
-                if (data.updateUrl) {
-                    const { shell } = require('electron') || {};
-                    const { exec } = require('child_process');
-                    exec(`start "" "${data.updateUrl}"`);
+                if (data.updateUrl && cp) {
+                    cp.exec(`start "" "${data.updateUrl}"`);
                 }
                 updateStatus(100, "Opening download page...");
             }
         } catch (e) {
             console.error("Update failed:", e);
-            updateStatus(100, "Update could not finish automatically. Please visit GitHub.");
+            updateStatus(100, "Update failed: " + e.message);
         }
-    }
-
-    function downloadFile(url, destPath, onProg) {
-        return new Promise((resolve, reject) => {
-            const file = fs.createWriteStream(destPath);
-            const req = https.get(url, (res) => {
-                if (res.statusCode === 301 || res.statusCode === 302) {
-                    return downloadFile(res.headers.location, destPath, onProg).then(resolve).catch(reject);
-                }
-                if (res.statusCode !== 200) {
-                    return reject(new Error(`Download failed with status ${res.statusCode}`));
-                }
-                const total = parseInt(res.headers['content-length'] || "0", 10);
-                let cur = 0;
-                res.on('data', (chunk) => {
-                    cur += chunk.length;
-                    file.write(chunk);
-                    if (total > 0 && onProg) onProg((cur / total) * 100);
-                });
-                res.on('end', () => {
-                    file.end();
-                    resolve(destPath);
-                });
-            });
-            req.on('error', (err) => {
-                fs.unlink(destPath, () => {});
-                reject(err);
-            });
-        });
     }
 
     return {

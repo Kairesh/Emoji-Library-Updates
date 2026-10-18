@@ -1,8 +1,8 @@
 // Main Studio Client Controller
-const fs = require('fs');
-const path = require('path');
-const https = require('https');
-const os = require('os');
+const fs = (typeof window !== "undefined" && window.require) ? window.require('fs') : (typeof require !== "undefined" ? require('fs') : null);
+const path = (typeof window !== "undefined" && window.require) ? window.require('path') : (typeof require !== "undefined" ? require('path') : null);
+const os = (typeof window !== "undefined" && window.require) ? window.require('os') : (typeof require !== "undefined" ? require('os') : null);
+const cp = (typeof window !== "undefined" && window.require) ? window.require('child_process') : (typeof require !== "undefined" ? require('child_process') : null);
 
 const csInterface = new CSInterface();
 
@@ -26,32 +26,47 @@ function getActiveProjectDir() {
 }
 
 async function resolveAssetsDir() {
-    const projectDir = await getActiveProjectDir();
     let targetDir = "";
-    if (projectDir) {
-        targetDir = path.join(projectDir, "Emoji & Icon Assets");
-    } else {
-        targetDir = path.join(os.homedir(), "Documents", "Emoji & Icon Studio Assets");
-    }
-
-    if (!fs.existsSync(targetDir)) {
-        try {
-            fs.mkdirSync(targetDir, { recursive: true });
-        } catch (e) {
-            console.error("Failed to create assets folder:", e);
+    try {
+        const projectDir = await getActiveProjectDir();
+        if (projectDir && path) {
+            targetDir = path.join(projectDir, "Emoji & Icon Assets");
+        } else if (os && path) {
+            targetDir = path.join(os.homedir(), "Documents", "Emoji & Icon Studio Assets");
+        } else {
+            targetDir = "C:\\Emoji & Icon Studio Assets";
         }
+
+        if (fs && !fs.existsSync(targetDir)) {
+            fs.mkdirSync(targetDir, { recursive: true });
+        }
+
+        // Clean any zero-byte or corrupt non-SVG files from assets directory
+        if (fs && fs.existsSync(targetDir)) {
+            try {
+                const files = fs.readdirSync(targetDir);
+                for (const f of files) {
+                    if (f.toLowerCase().endsWith('.svg')) {
+                        const fp = path.join(targetDir, f);
+                        const stat = fs.statSync(fp);
+                        if (stat.size < 120) {
+                            const content = fs.readFileSync(fp, 'utf8');
+                            if (!content.includes('<svg')) {
+                                fs.unlinkSync(fp);
+                            }
+                        }
+                    }
+                }
+            } catch (cleanErr) {}
+        }
+    } catch (e) {
+        console.warn("resolveAssetsDir error:", e);
     }
 
     const storageDisplay = document.getElementById('storage-path-display');
     if (storageDisplay) {
-        if (projectDir) {
-            const projName = path.basename(projectDir);
-            storageDisplay.textContent = `📁 ${projName}/Emoji & Icon Assets`;
-            storageDisplay.title = `Saved inside project at: ${targetDir}`;
-        } else {
-            storageDisplay.textContent = `📁 Documents/Emoji & Icon Studio Assets`;
-            storageDisplay.title = `${targetDir} (Save project to store directly in project folder)`;
-        }
+        storageDisplay.textContent = `📁 ${targetDir}`;
+        storageDisplay.title = targetDir;
     }
 
     return targetDir;
@@ -66,7 +81,7 @@ let currentFormat = Settings.get('shapeFormat') || 'svg';
 let currentCategory = 'all';
 let searchQuery = '';
 
-let activeCustomizerItem = null; // Currently customizing item
+let activeCustomizerItem = null;
 
 // DOM Elements
 const assetGrid = document.getElementById('asset-grid');
@@ -79,28 +94,32 @@ const noResults = document.getElementById('no-results');
 // ExtendScript initialization
 function loadJSX() {
     try {
-        let extPath = csInterface.getSystemPath(SystemPath.EXTENSION);
-        if (extPath.indexOf("file://") === 0) extPath = extPath.slice(7);
-        extPath = decodeURIComponent(extPath);
-        if (extPath.charAt(0) === '/' && extPath.charAt(2) === ':') extPath = extPath.slice(1);
+        if (typeof csInterface !== "undefined" && path && fs) {
+            let extPath = csInterface.getSystemPath(SystemPath.EXTENSION);
+            if (extPath.indexOf("file://") === 0) extPath = extPath.slice(7);
+            extPath = decodeURIComponent(extPath);
+            if (extPath.charAt(0) === '/' && extPath.charAt(2) === ':') extPath = extPath.slice(1);
 
-        const jsxPath = path.join(extPath, "host", "index.jsx");
-        if (fs.existsSync(jsxPath)) {
-            const jsxCode = fs.readFileSync(jsxPath, 'utf8');
-            csInterface.evalScript(jsxCode, function(res) {
-                console.log("ExtendScript initialized:", res);
-            });
+            const jsxPath = path.join(extPath, "host", "index.jsx");
+            if (fs.existsSync(jsxPath)) {
+                const jsxCode = fs.readFileSync(jsxPath, 'utf8');
+                csInterface.evalScript(jsxCode, function(res) {
+                    console.log("ExtendScript initialized:", res);
+                });
+            }
         }
     } catch(err) {
         console.error("loadJSX error:", err);
     }
 
-    csInterface.evalScript('EMOJI_HOST.getHost()', function(res) {
-        if (res && res !== 'EvalScript error.') {
-            hostApp = res.trim();
-        }
-        updateStatus(`Connected to ${hostApp === 'AEFT' ? 'After Effects' : hostApp === 'PPRO' ? 'Premiere Pro' : 'Adobe Host'}`);
-    });
+    try {
+        csInterface.evalScript('EMOJI_HOST.getHost()', function(res) {
+            if (res && res !== 'EvalScript error.') {
+                hostApp = res.trim();
+            }
+            updateStatus(`Connected to ${hostApp === 'AEFT' ? 'After Effects' : hostApp === 'PPRO' ? 'Premiere Pro' : 'Adobe Host'}`);
+        });
+    } catch (e) {}
 }
 
 function updateStatus(msg, type = 'info') {
@@ -124,10 +143,10 @@ function initTabs() {
             btn.classList.add('active');
             currentTab = btn.dataset.tab;
 
-            emojiSub.style.display = (currentTab === 'emojis') ? 'flex' : 'none';
-            iconSub.style.display = (currentTab === 'icons') ? 'flex' : 'none';
-            folderSub.style.display = (currentTab === 'folders') ? 'flex' : 'none';
-            playlistSub.style.display = (currentTab === 'playlists') ? 'flex' : 'none';
+            if (emojiSub) emojiSub.style.display = (currentTab === 'emojis') ? 'flex' : 'none';
+            if (iconSub) iconSub.style.display = (currentTab === 'icons') ? 'flex' : 'none';
+            if (folderSub) folderSub.style.display = (currentTab === 'folders') ? 'flex' : 'none';
+            if (playlistSub) playlistSub.style.display = (currentTab === 'playlists') ? 'flex' : 'none';
 
             renderCurrentTab();
         });
@@ -232,17 +251,11 @@ function getEmojiDownloadUrl(emojiChar, style, format) {
     if (style === 'microsoft') {
         return `https://cdn.jsdelivr.net/gh/shuding/fluentui-emoji-unicode/assets/${hex}_3d.png`;
     }
-    if (format === 'png' || style === 'apple') {
-        return `https://emojicdn.elk.sh/${encodeURIComponent(emojiChar)}?style=${style}`;
-    }
-    if (style === 'google') {
-        const notoHex = hex.replace(/-/g, '_');
-        return `https://cdn.jsdelivr.net/gh/googlefonts/noto-emoji@master/svg/emoji_u${notoHex}.svg`;
-    } else if (style === 'twitter') {
+    if (format === 'svg') {
+        // Twemoji provides pure vector SVGs that convert cleanly to AE outlines without complex filters
         return `https://cdn.jsdelivr.net/gh/jdecked/twemoji@latest/assets/svg/${hex}.svg`;
-    } else {
-        return `https://emojicdn.elk.sh/${encodeURIComponent(emojiChar)}?style=apple`;
     }
+    return `https://emojicdn.elk.sh/${encodeURIComponent(emojiChar)}?style=${style}`;
 }
 
 // ----------------------------------------------------
@@ -258,7 +271,7 @@ async function renderIcons() {
     const query = (searchQuery || '').trim();
 
     try {
-        const icons = await IconEngine.searchIcons(query, selectedPrefix, 70);
+        const icons = await IconEngine.searchIcons(query, selectedPrefix, 80);
         loadingSpinner.style.display = 'none';
 
         if (!icons || icons.length === 0) {
@@ -266,9 +279,8 @@ async function renderIcons() {
             return;
         }
 
-        const quickColor = document.getElementById('quick-icon-color').value || '#ffffff';
+        const quickColor = (document.getElementById('quick-icon-color') && document.getElementById('quick-icon-color').value) || '#ffffff';
 
-        // Render cards with direct SVG inlining or fallback
         icons.forEach(async (iconFullName) => {
             const card = document.createElement('div');
             card.className = 'asset-card';
@@ -295,7 +307,6 @@ async function renderIcons() {
 
             assetGrid.appendChild(card);
 
-            // Fetch SVG text and insert inline - 100% reliable in Adobe CEF Chromium
             try {
                 const svgText = await IconEngine.fetchSvgContent(iconFullName, { color: quickColor, strokeWidth: 1.8 });
                 iconContainer.innerHTML = svgText;
@@ -306,10 +317,7 @@ async function renderIcons() {
                     svgEl.style.pointerEvents = 'none';
                 }
             } catch (err) {
-                // Fallback to img tag if fetch fails
-                const img = document.createElement('img');
-                img.src = IconEngine.buildSvgUrl(iconFullName, { color: quickColor });
-                iconContainer.appendChild(img);
+                iconContainer.innerHTML = `<span style="font-size: 11px; color: #666;">•</span>`;
             }
         });
     } catch (err) {
@@ -404,9 +412,13 @@ function renderPlaylists() {
             span.textContent = item.emojiChar;
             card.appendChild(span);
         } else if (item.type === 'icon') {
-            const img = document.createElement('img');
-            img.src = IconEngine.buildSvgUrl(item.iconFullName, { color: item.color || '#fff' });
-            card.appendChild(img);
+            const iconContainer = document.createElement('div');
+            iconContainer.style.width = '28px';
+            iconContainer.style.height = '28px';
+            card.appendChild(iconContainer);
+            IconEngine.fetchSvgContent(item.iconFullName, { color: item.color || '#fff' }).then(svg => {
+                iconContainer.innerHTML = svg;
+            }).catch(() => {});
         } else if (item.type === 'local') {
             const img = document.createElement('img');
             img.src = `file://${item.fullPath.replace(/\\/g, '/')}`;
@@ -438,37 +450,37 @@ const strokeControlRow = document.getElementById('stroke-control-row');
 async function openCustomizer(item) {
     activeCustomizerItem = item;
     const title = document.getElementById('customizer-title');
-    title.textContent = `Customize: ${item.name}`;
+    if (title) title.textContent = `Customize: ${item.name}`;
 
-    // Fill playlist options
     const plSelect = document.getElementById('modal-playlist-select');
-    plSelect.innerHTML = '';
-    AssetManager.getPlaylists().forEach(pl => {
-        const opt = document.createElement('option');
-        opt.value = pl.id;
-        opt.textContent = pl.name;
-        plSelect.appendChild(opt);
-    });
+    if (plSelect) {
+        plSelect.innerHTML = '';
+        AssetManager.getPlaylists().forEach(pl => {
+            const opt = document.createElement('option');
+            opt.value = pl.id;
+            opt.textContent = pl.name;
+            plSelect.appendChild(opt);
+        });
+    }
 
-    // Stroke control only applicable to stroke icons
     if (item.type === 'icon') {
-        strokeControlRow.style.display = 'flex';
-        modalColorPicker.value = item.color || '#ffffff';
-        modalColorHex.value = item.color || '#ffffff';
+        if (strokeControlRow) strokeControlRow.style.display = 'flex';
+        if (modalColorPicker) modalColorPicker.value = item.color || '#ffffff';
+        if (modalColorHex) modalColorHex.value = item.color || '#ffffff';
     } else {
-        strokeControlRow.style.display = 'none';
+        if (strokeControlRow) strokeControlRow.style.display = 'none';
     }
 
     updateCustomizerPreview();
-    customizerModal.style.display = 'flex';
+    if (customizerModal) customizerModal.style.display = 'flex';
 }
 
 async function updateCustomizerPreview() {
-    if (!activeCustomizerItem) return;
+    if (!activeCustomizerItem || !previewRenderBox) return;
     previewRenderBox.innerHTML = '';
 
-    const color = modalColorHex.value || '#ffffff';
-    const strokeWidth = parseFloat(modalStrokeSlider.value) || 2;
+    const color = (modalColorHex && modalColorHex.value) || '#ffffff';
+    const strokeWidth = (modalStrokeSlider && parseFloat(modalStrokeSlider.value)) || 2;
 
     if (activeCustomizerItem.type === 'emoji') {
         if (currentStyle === 'apple' || currentStyle === 'microsoft') {
@@ -541,35 +553,14 @@ function convertSvgToPng(svgText, targetDimension = 1024) {
     });
 }
 
-function downloadBinaryFile(url, destPath) {
-    return new Promise((resolve, reject) => {
-        const file = fs.createWriteStream(destPath);
-        https.get(url, (res) => {
-            if (res.statusCode === 301 || res.statusCode === 302) {
-                return downloadBinaryFile(res.headers.location, destPath).then(resolve).catch(reject);
-            }
-            if (res.statusCode !== 200) {
-                return reject(new Error(`Server returned ${res.statusCode}`));
-            }
-            res.pipe(file);
-            file.on('finish', () => {
-                file.close(() => resolve(destPath));
-            });
-        }).on('error', (err) => {
-            fs.unlink(destPath, () => {});
-            reject(err);
-        });
-    });
-}
-
 async function insertActiveCustomizerItem() {
     if (!activeCustomizerItem) return;
-    customizerModal.style.display = 'none';
+    if (customizerModal) customizerModal.style.display = 'none';
 
     const item = activeCustomizerItem;
-    const size = parseInt(modalSizeSlider.value) || 256;
-    const color = modalColorHex.value || '#ffffff';
-    const strokeWidth = parseFloat(modalStrokeSlider.value) || 2;
+    const size = (modalSizeSlider && parseInt(modalSizeSlider.value, 10)) || 256;
+    const color = (modalColorHex && modalColorHex.value) || '#ffffff';
+    const strokeWidth = (modalStrokeSlider && parseFloat(modalStrokeSlider.value)) || 2;
     const isPremiere = (hostApp === 'PPRO');
 
     updateStatus(`Preparing ${item.name}...`, 'info');
@@ -583,7 +574,6 @@ async function insertActiveCustomizerItem() {
         }
 
         if (item.type === 'icon') {
-            // Fetch customized SVG
             const svgText = await IconEngine.fetchSvgContent(item.iconFullName, {
                 color: color,
                 strokeWidth: strokeWidth
@@ -593,38 +583,61 @@ async function insertActiveCustomizerItem() {
             const colorClean = color.replace('#', '');
 
             if (isPremiere || currentFormat === 'png') {
-                // Rasterize to crisp transparent 1024px PNG for Premiere or PNG mode
                 const pngBuffer = await convertSvgToPng(svgText, 1024);
                 const localPng = path.join(assetsDir, `icon_${cleanName}_${colorClean}.png`);
                 fs.writeFileSync(localPng, pngBuffer);
                 triggerHostImport(localPng, item.name, size);
             } else {
-                // Vector SVG for After Effects
                 const localSvg = path.join(assetsDir, `icon_${cleanName}_${colorClean}.svg`);
                 fs.writeFileSync(localSvg, svgText, 'utf8');
                 triggerHostImport(localSvg, item.name, size);
             }
         } else if (item.type === 'emoji') {
             const hex = getEmojiHex(item.emojiChar);
-            const ext = (isPremiere || currentStyle === 'apple' || currentFormat === 'png') ? 'png' : 'svg';
+            const ext = (isPremiere || currentFormat === 'png') ? 'png' : 'svg';
             const localFile = path.join(assetsDir, `emoji_${currentStyle}_${hex}.${ext}`);
 
-            if (!fs.existsSync(localFile) || fs.statSync(localFile).size === 0) {
+            let needsDownload = true;
+            if (fs && fs.existsSync(localFile) && fs.statSync(localFile).size > 100) {
                 if (ext === 'svg') {
-                    const svgUrl = getEmojiDownloadUrl(item.emojiChar, currentStyle, 'svg');
-                    const resp = await fetch(svgUrl);
-                    const svgText = await resp.text();
-                    fs.writeFileSync(localFile, svgText, 'utf8');
+                    const content = fs.readFileSync(localFile, 'utf8');
+                    if (content.includes('<svg') && content.includes('</svg>')) {
+                        needsDownload = false;
+                    } else {
+                        try { fs.unlinkSync(localFile); } catch (e) {}
+                    }
+                } else {
+                    needsDownload = false;
+                }
+            }
+
+            if (needsDownload) {
+                if (ext === 'svg') {
+                    let svgText = '';
+                    const twemojiUrl = `https://cdn.jsdelivr.net/gh/jdecked/twemoji@latest/assets/svg/${hex}.svg`;
+                    try {
+                        svgText = await Net.get(twemojiUrl);
+                    } catch (e) {
+                        const notoHex = hex.replace(/-/g, '_');
+                        const notoUrl = `https://cdn.jsdelivr.net/gh/googlefonts/noto-emoji@master/svg/emoji_u${notoHex}.svg`;
+                        try {
+                            svgText = await Net.get(notoUrl);
+                        } catch (e2) {}
+                    }
+
+                    if (svgText && svgText.includes('<svg')) {
+                        fs.writeFileSync(localFile, svgText, 'utf8');
+                    } else {
+                        // If no vector SVG available for this emoji, fallback to 1024px PNG
+                        const pngUrl = `https://emojicdn.elk.sh/${encodeURIComponent(item.emojiChar)}?style=${currentStyle}`;
+                        const fallbackPng = path.join(assetsDir, `emoji_${currentStyle}_${hex}.png`);
+                        await Net.downloadFile(pngUrl, fallbackPng);
+                        triggerHostImport(fallbackPng, item.name, size);
+                        return;
+                    }
                 } else {
                     const dlUrl = getEmojiDownloadUrl(item.emojiChar, currentStyle, 'png');
-                    if (dlUrl.endsWith('.svg')) {
-                        const resp = await fetch(dlUrl);
-                        const svgText = await resp.text();
-                        const pngBuf = await convertSvgToPng(svgText, 1024);
-                        fs.writeFileSync(localFile, pngBuf);
-                    } else {
-                        await downloadBinaryFile(dlUrl, localFile);
-                    }
+                    await Net.downloadFile(dlUrl, localFile);
                 }
             }
             triggerHostImport(localFile, item.name, size);
@@ -672,18 +685,22 @@ document.addEventListener('DOMContentLoaded', () => {
     initTabs();
 
     // Populate Icon Library dropdown
-    const libSelect = document.getElementById('icon-library-select');
-    if (libSelect) {
-        IconEngine.collections.forEach(col => {
-            const opt = document.createElement('option');
-            opt.value = col.id;
-            opt.textContent = `${col.name} ${col.count ? '(' + col.count + ')' : ''}`;
-            libSelect.appendChild(opt);
-        });
+    try {
+        const libSelect = document.getElementById('icon-library-select');
+        if (libSelect) {
+            IconEngine.collections.forEach(col => {
+                const opt = document.createElement('option');
+                opt.value = col.id;
+                opt.textContent = `${col.name} ${col.count ? '(' + col.count + ')' : ''}`;
+                libSelect.appendChild(opt);
+            });
 
-        libSelect.addEventListener('change', () => {
-            if (currentTab === 'icons') renderIcons();
-        });
+            libSelect.addEventListener('change', () => {
+                if (currentTab === 'icons') renderIcons();
+            });
+        }
+    } catch (e) {
+        console.warn("libSelect init error:", e);
     }
 
     // Populate Linked Folders dropdown
@@ -694,7 +711,7 @@ document.addEventListener('DOMContentLoaded', () => {
         AssetManager.getLinkedFolders().forEach(f => {
             const opt = document.createElement('option');
             opt.value = f;
-            opt.textContent = path.basename(f) + ` (${f})`;
+            opt.textContent = (path ? path.basename(f) : f) + ` (${f})`;
             folderSelect.appendChild(opt);
         });
     }
@@ -710,10 +727,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const btnAddFolder = document.getElementById('btn-add-folder');
     if (btnAddFolder) {
         btnAddFolder.addEventListener('click', () => {
-            // Ask user for folder path via quick prompt or native picker
-            const defaultDoc = path.join(os.homedir(), "Documents");
+            const defaultDoc = (os && path) ? path.join(os.homedir(), "Documents") : "C:\\";
             const folder = prompt("Enter local folder path (e.g. C:\\Users\\...\\MyIcons or G:\\My Drive\\Icons):", defaultDoc);
-            if (folder && fs.existsSync(folder)) {
+            if (folder && fs && fs.existsSync(folder)) {
                 AssetManager.addLinkedFolder(folder);
                 updateFolderDropdown();
                 folderSelect.value = folder;
@@ -774,18 +790,22 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // Search bar
-    searchInput.addEventListener('input', () => {
-        searchQuery = searchInput.value;
-        clearSearchBtn.style.display = searchQuery ? 'block' : 'none';
-        renderCurrentTab();
-    });
+    if (searchInput) {
+        searchInput.addEventListener('input', () => {
+            searchQuery = searchInput.value;
+            if (clearSearchBtn) clearSearchBtn.style.display = searchQuery ? 'block' : 'none';
+            renderCurrentTab();
+        });
+    }
 
-    clearSearchBtn.addEventListener('click', () => {
-        searchInput.value = '';
-        searchQuery = '';
-        clearSearchBtn.style.display = 'none';
-        renderCurrentTab();
-    });
+    if (clearSearchBtn) {
+        clearSearchBtn.addEventListener('click', () => {
+            searchInput.value = '';
+            searchQuery = '';
+            clearSearchBtn.style.display = 'none';
+            renderCurrentTab();
+        });
+    }
 
     // Category Tabs (Emojis)
     const categoryTabs = document.getElementById('category-tabs');
@@ -819,13 +839,15 @@ document.addEventListener('DOMContentLoaded', () => {
     const settingsDrawer = document.getElementById('settings-drawer');
 
     if (toggleSettingsBtn && settingsDrawer) {
-        toggleSettingsBtn.addEventListener('click', () => {
+        toggleSettingsBtn.addEventListener('click', (e) => {
+            e.preventDefault();
             const isHidden = (settingsDrawer.style.display === 'none' || !settingsDrawer.style.display);
             settingsDrawer.style.display = isHidden ? 'flex' : 'none';
         });
     }
     if (closeSettingsBtn && settingsDrawer) {
-        closeSettingsBtn.addEventListener('click', () => {
+        closeSettingsBtn.addEventListener('click', (e) => {
+            e.preventDefault();
             settingsDrawer.style.display = 'none';
         });
     }
@@ -833,10 +855,12 @@ document.addEventListener('DOMContentLoaded', () => {
     // Open Assets Folder Button
     const openAssetsBtn = document.getElementById('open-assets-btn');
     if (openAssetsBtn) {
-        openAssetsBtn.addEventListener('click', async () => {
+        openAssetsBtn.addEventListener('click', async (e) => {
+            e.preventDefault();
             const currentDir = await resolveAssetsDir();
-            const { exec } = require('child_process');
-            exec(`explorer "${currentDir}"`);
+            if (cp) {
+                cp.exec(`explorer "${currentDir}"`);
+            }
         });
     }
 
@@ -889,77 +913,106 @@ document.addEventListener('DOMContentLoaded', () => {
         sizeValue.textContent = `${sizeSlider.value}px`;
         sizeSlider.addEventListener('input', () => {
             sizeValue.textContent = `${sizeSlider.value}px`;
-            Settings.set('insertSize', parseInt(sizeSlider.value));
+            Settings.set('insertSize', parseInt(sizeSlider.value, 10));
         });
     }
 
     // Settings API keys
     const btnSaveKeys = document.getElementById('btn-save-keys');
     if (btnSaveKeys) {
-        btnSaveKeys.addEventListener('click', () => {
+        btnSaveKeys.addEventListener('click', (e) => {
+            e.preventDefault();
             const apiVal = document.getElementById('setting-iconify-api').value;
             const ghVal = document.getElementById('setting-github-token').value;
             Settings.set('iconifyCustomApiUrl', apiVal);
             Settings.set('githubToken', ghVal);
-            alert("API settings saved successfully!");
+            updateStatus("Settings saved successfully!", "success");
+            alert("Settings saved successfully!");
         });
     }
 
     // Check updates
     const btnCheckUpdates = document.getElementById('btn-check-updates');
     if (btnCheckUpdates) {
-        btnCheckUpdates.addEventListener('click', () => {
+        btnCheckUpdates.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
             PluginUpdater.check(true);
         });
     }
 
     // Customizer Modal event listeners
-    document.getElementById('btn-close-customizer').onclick = () => {
-        customizerModal.style.display = 'none';
-    };
-    document.getElementById('btn-cancel-customizer').onclick = () => {
-        customizerModal.style.display = 'none';
-    };
-    document.getElementById('btn-insert-customizer').onclick = insertActiveCustomizerItem;
+    const btnCloseCust = document.getElementById('btn-close-customizer');
+    if (btnCloseCust) {
+        btnCloseCust.onclick = () => { if (customizerModal) customizerModal.style.display = 'none'; };
+    }
+    const btnCancelCust = document.getElementById('btn-cancel-customizer');
+    if (btnCancelCust) {
+        btnCancelCust.onclick = () => { if (customizerModal) customizerModal.style.display = 'none'; };
+    }
+    const btnInsertCust = document.getElementById('btn-insert-customizer');
+    if (btnInsertCust) {
+        btnInsertCust.onclick = insertActiveCustomizerItem;
+    }
 
     // Customizer Controls updates
-    modalColorPicker.addEventListener('input', () => {
-        modalColorHex.value = modalColorPicker.value;
-        updateCustomizerPreview();
-    });
-    modalColorHex.addEventListener('input', () => {
-        modalColorPicker.value = modalColorHex.value;
-        updateCustomizerPreview();
-    });
-    modalStrokeSlider.addEventListener('input', () => {
-        modalStrokeVal.textContent = `${parseFloat(modalStrokeSlider.value).toFixed(1)}px`;
-        updateCustomizerPreview();
-    });
-    modalSizeSlider.addEventListener('input', () => {
-        modalSizeVal.textContent = `${modalSizeSlider.value}px`;
-    });
+    if (modalColorPicker && modalColorHex) {
+        modalColorPicker.addEventListener('input', () => {
+            modalColorHex.value = modalColorPicker.value;
+            updateCustomizerPreview();
+        });
+        modalColorHex.addEventListener('input', () => {
+            modalColorPicker.value = modalColorHex.value;
+            updateCustomizerPreview();
+        });
+    }
+    if (modalStrokeSlider && modalStrokeVal) {
+        modalStrokeSlider.addEventListener('input', () => {
+            modalStrokeVal.textContent = `${parseFloat(modalStrokeSlider.value).toFixed(1)}px`;
+            updateCustomizerPreview();
+        });
+    }
+    if (modalSizeSlider && modalSizeVal) {
+        modalSizeSlider.addEventListener('input', () => {
+            modalSizeVal.textContent = `${modalSizeSlider.value}px`;
+        });
+    }
 
     // Save to Playlist from Customizer
-    document.getElementById('btn-modal-add-playlist').onclick = () => {
-        if (!activeCustomizerItem) return;
-        const plId = document.getElementById('modal-playlist-select').value;
-        AssetManager.addToPlaylist(plId, Object.assign({}, activeCustomizerItem, {
-            id: activeCustomizerItem.iconFullName || activeCustomizerItem.fullPath || activeCustomizerItem.emojiChar,
-            color: modalColorHex.value,
-            strokeWidth: parseFloat(modalStrokeSlider.value)
-        }));
-        updatePlaylistDropdown();
-        alert("Added to playlist!");
-    };
+    const btnAddPl = document.getElementById('btn-modal-add-playlist');
+    if (btnAddPl) {
+        btnAddPl.onclick = () => {
+            if (!activeCustomizerItem) return;
+            const plSelectEl = document.getElementById('modal-playlist-select');
+            const plId = plSelectEl ? plSelectEl.value : 'favs';
+            AssetManager.addToPlaylist(plId, Object.assign({}, activeCustomizerItem, {
+                id: activeCustomizerItem.iconFullName || activeCustomizerItem.fullPath || activeCustomizerItem.emojiChar,
+                color: (modalColorHex && modalColorHex.value) || '#ffffff',
+                strokeWidth: (modalStrokeSlider && parseFloat(modalStrokeSlider.value)) || 2
+            }));
+            updatePlaylistDropdown();
+            alert("Added to playlist!");
+        };
+    }
 
     // Background preview toggle
     document.querySelectorAll('.bg-toggle-btn').forEach(btn => {
         btn.addEventListener('click', () => {
             document.querySelectorAll('.bg-toggle-btn').forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
-            previewStage.className = `preview-stage ${btn.dataset.bg}`;
+            if (previewStage) previewStage.className = `preview-stage ${btn.dataset.bg}`;
         });
     });
+
+    // Quick icon color picker
+    const quickColorInput = document.getElementById('quick-icon-color');
+    const colorPreviewDot = document.getElementById('color-preview-dot');
+    if (quickColorInput) {
+        quickColorInput.addEventListener('input', () => {
+            if (colorPreviewDot) colorPreviewDot.style.background = quickColorInput.value;
+            if (currentTab === 'icons') renderIcons();
+        });
+    }
 
     // Initial render
     renderEmojis(true);
@@ -967,5 +1020,5 @@ document.addEventListener('DOMContentLoaded', () => {
     // Initial background update check
     setTimeout(() => {
         PluginUpdater.check(false);
-    }, 1200);
+    }, 1000);
 });

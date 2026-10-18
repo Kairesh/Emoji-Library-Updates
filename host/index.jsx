@@ -230,7 +230,10 @@ var EMOJI_HOST = {
                     if (!cmdID || cmdID === 0) cmdID = 3973;
                     
                     if (cmdID) {
+                        try { app.beginSuppressDialogs(); } catch (supErr) {}
                         app.executeCommand(cmdID);
+                        try { app.endSuppressDialogs(false); } catch (supEndErr) {}
+
                         // Only remove original if a new shape layer was actually generated
                         if (comp.layers.length > origCount) {
                             layer.remove();
@@ -243,6 +246,7 @@ var EMOJI_HOST = {
                         layer.selected = true;
                     }
                 } catch (shapeErr) {
+                    try { app.endSuppressDialogs(false); } catch (supEndErr2) {}
                     layer.enabled = true;
                     layer.selected = true;
                 }

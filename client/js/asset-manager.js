@@ -2,6 +2,9 @@
  * Local Folders & Custom Playlists Manager
  */
 const AssetManager = (function () {
+    const fs = (typeof window !== "undefined" && window.require) ? window.require('fs') : (typeof require !== "undefined" ? require('fs') : null);
+    const path = (typeof window !== "undefined" && window.require) ? window.require('path') : (typeof require !== "undefined" ? require('path') : null);
+
     const SUPPORTED_EXTS = ['.png', '.jpg', '.jpeg', '.svg', '.gif', '.webp', '.mp4'];
 
     function getLinkedFolders() {
@@ -24,7 +27,7 @@ const AssetManager = (function () {
     }
 
     function scanFolder(folderPath, recursive = false) {
-        if (!fs.existsSync(folderPath)) return [];
+        if (!fs || !path || !fs.existsSync(folderPath)) return [];
         const results = [];
         try {
             const items = fs.readdirSync(folderPath, { withFileTypes: true });

@@ -58,11 +58,136 @@ const IconEngine = (function () {
         "heroicons:clock-solid", "heroicons:calendar-days-solid"
     ];
 
+    const OFFICIAL_CATEGORIES = {
+        "all": [
+            { id: "all", label: "All Items", icon: "🌐", desc: "All 200,000+ vector icons across all libraries" },
+            { id: "essentials", label: "UI Essentials", icon: "✨", query: "home,search,settings,user,bell,mail,camera,heart,star,trash,check,close,plus,folder,download,upload", desc: "Common buttons, navigation & interface icons" },
+            { id: "media", label: "Media & Audio", icon: "🎬", query: "play,pause,stop,volume,speaker,music,video,camera,microphone,headphones,film,disc", desc: "Playback, audio controls, camera & sound" },
+            { id: "arrows", label: "Arrows & Direction", icon: "➔", query: "arrow,chevron,caret,trending,refresh,repeat,sync,corner,undo,redo", desc: "Directional indicators, navigation arrows & chevrons" },
+            { id: "brands", label: "Brands & Logos", icon: "🏷️", query: "youtube,instagram,tiktok,discord,spotify,github,apple,figma,twitter,google,whatsapp,adobe", desc: "Social media, streaming, software & tech logos" },
+            { id: "motion", label: "Animated (Line MD)", icon: "⚡", query: "loading,spinner,confirm,alert,arrow,weather,player", desc: "Smooth animated motion vectors with trim paths" },
+            { id: "retro", label: "Retro 8-Bit", icon: "👾", query: "gamepad,heart,coin,dice,trophy,power,zap,sword,shield", desc: "Pixelart & gaming icons" }
+        ],
+        "lucide": [
+            { id: "all", label: "All Lucide", icon: "💎", desc: "Complete Lucide icon collection (2,100+)" },
+            { id: "arrows", label: "Arrows", icon: "➔", query: "arrow,chevron,move,corner,refresh,rotate,redo,undo", desc: "Chevrons, rotations, directions" },
+            { id: "design", label: "Design & Creative", icon: "🎨", query: "palette,brush,pen,pencil,layers,shapes,crop,scissors,ruler,wand", desc: "Art tools, layers, shapes" },
+            { id: "dev", label: "Development", icon: "💻", query: "code,terminal,git,binary,bug,cpu,database,server,webhook", desc: "Coding, servers, databases" },
+            { id: "media", label: "Media & Audio", icon: "🎵", query: "play,pause,volume,music,video,film,mic,headphones,radio,disc", desc: "Music, player, video, mics" },
+            { id: "communication", label: "Communication", icon: "💬", query: "mail,message,chat,phone,inbox,send,at-sign,bell,share", desc: "Chat, messages, calls, notifications" },
+            { id: "weather", label: "Weather", icon: "☀️", query: "sun,moon,cloud,rain,wind,snow,thermometer,sunset,sunrise", desc: "Sun, rain, clouds, climate" },
+            { id: "devices", label: "Devices & Tech", icon: "📱", query: "laptop,smartphone,tablet,monitor,tv,watch,printer,hard-drive", desc: "Phones, computers, monitors" },
+            { id: "shapes", label: "Shapes & Geometry", icon: "🔺", query: "circle,square,triangle,hexagon,octagon,diamond,star,heart", desc: "Geometric shapes & symbols" },
+            { id: "commerce", label: "Commerce & Finance", icon: "💳", query: "shopping,cart,bag,credit-card,dollar,wallet,receipt,tag", desc: "Shopping, checkout, cards, currency" },
+            { id: "system", label: "System & Files", icon: "⚙️", query: "settings,sliders,lock,key,file,folder,archive,trash,clipboard", desc: "Files, settings, folders, security" }
+        ],
+        "ph": [
+            { id: "all", label: "All Phosphor", icon: "⚡", desc: "Complete Phosphor collection (9,000+)" },
+            { id: "arrows", label: "Arrows", icon: "➔", query: "arrow,caret,chevron,arrows", desc: "Arrows & directions" },
+            { id: "brand", label: "Brand & Logos", icon: "🏷️", query: "logo,brand,github,google,apple,twitter,instagram,facebook", desc: "Company & social brands" },
+            { id: "communication", label: "Communication", icon: "💬", query: "chat,envelope,phone,paper-plane,broadcast,megaphone", desc: "Chats, mail, speech" },
+            { id: "design", label: "Design", icon: "🎨", query: "paint,bezier,pen,eyedropper,crop,selection,swatches", desc: "Design & vectors" },
+            { id: "dev", label: "Development", icon: "💻", query: "code,brackets,terminal,git,cpu,database,bug", desc: "Code & engineering" },
+            { id: "editor", label: "Editor & Text", icon: "✍️", query: "text,align,bold,italic,underline,list,heading,quotes", desc: "Typography & editor" },
+            { id: "finance", label: "Finance & Money", icon: "💰", query: "currency,coin,credit-card,wallet,bank,chart,trend", desc: "Money, coins, wallets" },
+            { id: "games", label: "Games & Fun", icon: "🎮", query: "game-controller,dice,sword,ghost,trophy,medal,sparkle", desc: "Gaming & entertainment" },
+            { id: "health", label: "Health & Fitness", icon: "❤️", query: "heart,first-aid,activity,pill,barbell,dna,mask", desc: "Medical & wellness" },
+            { id: "media", label: "Media & Audio", icon: "🎬", query: "play,pause,record,speaker,microphone,music,video,image,camera", desc: "Sound & video" },
+            { id: "system", label: "System & Interface", icon: "⚙️", query: "gear,faders,bell,shield,lock,key,folder,trash,check,x", desc: "Settings & UI" },
+            { id: "weather", label: "Weather", icon: "⛅", query: "sun,moon,cloud,lightning,drop,snowflake,wind", desc: "Atmosphere & nature" }
+        ],
+        "tabler": [
+            { id: "all", label: "All Tabler", icon: "📐", desc: "Complete Tabler collection (6,000+)" },
+            { id: "arrows", label: "Arrows", icon: "➔", query: "arrow,chevron,corner,circle-arrow,arrows", desc: "Directional arrows" },
+            { id: "brand", label: "Brand", icon: "🏷️", query: "brand,logo,social", desc: "Brands & companies" },
+            { id: "commerce", label: "Commerce", icon: "🛒", query: "shopping,cart,discount,receipt,cash,coin,wallet,credit-card", desc: "Shop, payment & bills" },
+            { id: "communication", label: "Communication", icon: "💬", query: "mail,message,phone,send,inbox,bell", desc: "Messaging & alert" },
+            { id: "devices", label: "Devices", icon: "💻", query: "device,cpu,laptop,phone,tablet,camera,keyboard,mouse", desc: "Hardware & gadgets" },
+            { id: "dev", label: "Development", icon: "⌨️", query: "code,git,terminal,database,server,bug,api", desc: "Code, git & database" },
+            { id: "filled", label: "Filled / Solid", icon: "⬛", query: "filled", desc: "Solid filled icon variants" },
+            { id: "gaming", label: "Gaming", icon: "🎮", query: "device-gamepad,dice,pacman,sword,trophy,playstation", desc: "Games & arcade" },
+            { id: "media", label: "Media", icon: "📹", query: "player,movie,photo,music,microphone,headphones,volume", desc: "Video, music & photography" },
+            { id: "system", label: "System & UI", icon: "⚙️", query: "settings,adjustments,lock,key,folder,file,trash,check,x", desc: "Settings, security & files" },
+            { id: "weather", label: "Weather", icon: "🌧️", query: "sun,moon,cloud,rain,wind,snowflake", desc: "Forecast & climate" }
+        ],
+        "line-md": [
+            { id: "all", label: "All Motion Icons", icon: "⚡", desc: "All 1,100+ animated motion icons" },
+            { id: "loading", label: "Loading & Spinners", icon: "🔄", query: "loading,spinner,spin,sync", desc: "Looping spinners & loaders" },
+            { id: "arrows", label: "Motion Arrows", icon: "➔", query: "arrow,chevron,download,upload", desc: "Animated drawing arrows" },
+            { id: "symbols", label: "Alerts & Status", icon: "🔔", query: "confirm,alert,check,close,cancel,info,question,bell", desc: "Checkmarks, crosses & badges" },
+            { id: "interface", label: "Interface & UI", icon: "📱", query: "menu,home,cog,settings,search,filter,heart,star,sun,moon", desc: "Standard animated UI" },
+            { id: "media", label: "Media & Player", icon: "🎬", query: "play,pause,stop,volume,mute,music,mic,camera,image", desc: "Play, sound & recording" },
+            { id: "weather", label: "Weather Motion", icon: "☀️", query: "sunny,cloudy,rainy,weather,wind", desc: "Sun, rain & clouds" },
+            { id: "editing", label: "Editing & Tools", icon: "✏️", query: "edit,pencil,folder,document,trash,link,copy", desc: "Writing, docs & folders" }
+        ],
+        "simple-icons": [
+            { id: "all", label: "All Brands", icon: "🌐", desc: "Complete 3,700+ brand & tech logos" },
+            { id: "social", label: "Social Media", icon: "📱", query: "youtube,instagram,tiktok,facebook,x,twitter,reddit,snapchat,pinterest,linkedin,threads", desc: "Popular social platforms" },
+            { id: "streaming", label: "Video & Streaming", icon: "📺", query: "youtube,netflix,twitch,vimeo,disneyplus,primevideo,hulu,kick", desc: "Video streaming networks" },
+            { id: "creative", label: "Design & Creative", icon: "🎨", query: "adobe,figma,canva,sketch,blender,unrealengine,unity,dribbble,behance,procreate", desc: "Creative tools & suites" },
+            { id: "dev", label: "Dev & Code", icon: "💻", query: "github,gitlab,stackoverflow,vscode,visualstudio,python,javascript,react,vue,nodejs,docker", desc: "Developer tools & languages" },
+            { id: "tech", label: "Tech & Cloud", icon: "☁️", query: "apple,google,microsoft,amazon,aws,cloudflare,meta,intel,amd,nvidia", desc: "Big tech & cloud providers" },
+            { id: "gaming", label: "Gaming", icon: "🎮", query: "steam,playstation,xbox,nintendo,epicgames,discord,roblox,riotgames", desc: "Game stores & consoles" },
+            { id: "audio", label: "Music & Audio", icon: "🎧", query: "spotify,applemusic,soundcloud,bandcamp,tidal,deezer,audible", desc: "Music streaming & podcast apps" },
+            { id: "crypto", label: "Finance & Crypto", icon: "🪙", query: "bitcoin,ethereum,paypal,stripe,visa,mastercard,shopify", desc: "Payments, banks & crypto" }
+        ],
+        "pixelarticons": [
+            { id: "all", label: "All 8-Bit Pixel", icon: "👾", desc: "Complete 1,300+ retro pixel icons" },
+            { id: "gaming", label: "Gaming & Arcade", icon: "🎮", query: "gamepad,arcade,dice,coin,trophy,pixel,vr-headset", desc: "Arcade, controllers & games" },
+            { id: "items", label: "Weapons & Items", icon: "🗡️", query: "sword,shield,heart,potion,zap,power,flag,key,lock", desc: "RPG items, health & keys" },
+            { id: "arrows", label: "Pixel Arrows", icon: "➔", query: "arrow,chevron,corner,move", desc: "Pixelated directions" },
+            { id: "devices", label: "Tech & Devices", icon: "📻", query: "computer,device,camera,headphone,radio,battery,clock", desc: "Retro tech & hardware" },
+            { id: "ui", label: "UI & Interface", icon: "📋", query: "menu,checkbox,close,plus,minus,search,trash,user,mail", desc: "Pixelated UI controls" }
+        ],
+        "heroicons": [
+            { id: "all", label: "All Heroicons", icon: "🛡️", desc: "Clean crafted Tailwind Heroicons" },
+            { id: "arrows", label: "Arrows", icon: "➔", query: "arrow,chevron", desc: "Directions & navigation" },
+            { id: "media", label: "Media", icon: "🎬", query: "play,pause,speaker,video,photo,camera,film,microphone", desc: "Sound, video & photos" },
+            { id: "interface", label: "Interface", icon: "⚙️", query: "cog,adjustments,bars,x-mark,check,bell,heart,star,magnifying-glass", desc: "System, settings, search" },
+            { id: "users", label: "Users & People", icon: "👤", query: "user,users,user-group,user-circle,user-plus", desc: "Profiles, accounts, teams" },
+            { id: "files", label: "Files & Folders", icon: "📁", query: "folder,document,clipboard,archive,trash,inbox", desc: "Folders, docs & storage" }
+        ]
+    };
+
+    function getCategories(collectionId) {
+        if (OFFICIAL_CATEGORIES[collectionId]) {
+            return OFFICIAL_CATEGORIES[collectionId];
+        }
+        return [
+            { id: "all", label: "All Icons", icon: "🌐", desc: "All icons in this library" },
+            { id: "arrows", label: "Arrows", icon: "➔", query: "arrow,chevron,move", desc: "Navigation & direction" },
+            { id: "media", label: "Media & Sound", icon: "🎬", query: "play,pause,sound,volume,music,video", desc: "Audio & video controls" },
+            { id: "interface", label: "Interface & UI", icon: "⚙️", query: "cog,settings,menu,close,check,search,user", desc: "Common UI symbols" },
+            { id: "files", label: "Files & Folders", icon: "📁", query: "folder,file,document,trash,save", desc: "Content management" }
+        ];
+    }
+
+    function filterIconsByCategory(iconsList, categoryId, collectionId) {
+        if (!categoryId || categoryId === "all") return iconsList;
+        const cats = getCategories(collectionId);
+        const cat = cats.find(c => c.id === categoryId);
+        if (!cat || !cat.query) return iconsList;
+        const keywords = cat.query.toLowerCase().split(',').map(k => k.trim()).filter(Boolean);
+        return iconsList.filter(name => {
+            const lower = name.toLowerCase();
+            return keywords.some(kw => lower.includes(kw));
+        });
+    }
+
+    // Low-RAM bounded caches for 4GB-8GB devices
+    const MAX_CACHE_ENTRIES = 120;
     const searchCache = new Map();
     const svgCache = new Map();
     const collectionListCache = new Map();
-    // Cache for batch JSON payloads: prefix -> { icons: { name: { body, width, height } }, width, height }
     const batchDataCache = new Map();
+
+    function setBoundedCache(map, key, value) {
+        if (map.size >= MAX_CACHE_ENTRIES) {
+            const oldestKey = map.keys().next().value;
+            map.delete(oldestKey);
+        }
+        map.set(key, value);
+    }
 
     function getApiBase() {
         if (typeof Settings !== "undefined") {
@@ -355,7 +480,10 @@ const IconEngine = (function () {
         getAllLibrariesStream: getAllLibrariesStream,
         fetchBatchIcons: fetchBatchIcons,
         buildSvgUrl: buildSvgUrl,
-        fetchSvgContent: fetchSvgContent
+        fetchSvgContent: fetchSvgContent,
+        getCategories: getCategories,
+        filterIconsByCategory: filterIconsByCategory,
+        officialCategories: OFFICIAL_CATEGORIES
     };
 })();
 

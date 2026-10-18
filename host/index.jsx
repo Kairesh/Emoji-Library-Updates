@@ -41,6 +41,19 @@ var EMOJI_HOST = {
         return "";
     },
 
+    // Native Adobe Folder Selection Dialog (Zero OS Shell / Prompt)
+    selectFolderDialog: function(title) {
+        try {
+            var f = Folder.selectDialog(title || "Select Icons & Assets Folder");
+            if (f && f.exists) {
+                return f.fsName;
+            }
+        } catch (e) {
+            return "ERROR: " + e.toString();
+        }
+        return "";
+    },
+
     // ----------------------------------------------------
     // AFTER EFFECTS SPECIFIC METHODS
     // ----------------------------------------------------

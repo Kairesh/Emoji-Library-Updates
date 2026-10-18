@@ -11,40 +11,69 @@
 <body>
     <div class="app-container">
         <!-- Top Navigation Bar -->
+        <!-- Top Navigation Bar (MediaFetch AMOLED Style) -->
         <header class="panel-header">
-            <!-- App Tabs -->
+            <!-- App Tabs & Settings -->
             <div class="top-nav-bar">
-                <div class="nav-tabs">
-                    <button class="nav-tab-btn active" data-tab="emojis">Emojis</button>
-                    <button class="nav-tab-btn" data-tab="icons">Icons (200k+)</button>
-                    <button class="nav-tab-btn" data-tab="folders">Folders</button>
-                    <button class="nav-tab-btn" data-tab="playlists">Playlists</button>
+                <div class="studio-nav">
+                    <button class="studio-tab active" data-tab="emojis">Emojis</button>
+                    <button class="studio-tab" data-tab="icons">Icons (200k+)</button>
+                    <button class="studio-tab" data-tab="folders">Folders</button>
+                    <button class="studio-tab" data-tab="playlists">Playlists</button>
                 </div>
                 <div class="header-actions">
                     <button id="toggle-settings" class="icon-btn-settings" title="Settings & Guides">⚙️</button>
                 </div>
             </div>
 
-            <!-- Search & Filter Controls -->
-            <div class="search-row">
-                <input type="text" id="search-input" placeholder="Search emojis & icons..." autocomplete="off" />
-                <button id="clear-search" class="icon-btn" title="Clear Search" style="display: none;">✕</button>
+            <!-- Dynamic Category Pills Bar (Horizontal Scroll) -->
+            <div class="platform-bar" id="category-pills-bar">
+                <!-- Populated dynamically based on active tab / icon library -->
             </div>
 
-            <!-- Emojis Sub-Toolbar (shown when tab is 'emojis') -->
+            <!-- Studio Search Bar (Matches MediaFetch Pro) -->
+            <div class="studio-search-bar">
+                <div class="studio-input-wrap">
+                    <svg class="search-lens-svg" width="13" height="13" viewBox="0 0 24 24"><path fill="currentColor" d="M9.5 3a6.5 6.5 0 0 1 5.25 10.33l4.96 4.96a.75.75 0 0 1-1.06 1.06l-4.96-4.96A6.5 6.5 0 1 1 9.5 3zm0 1.5a5 5 0 1 0 0 10 5 5 0 0 0 0-10z"/></svg>
+                    <input type="text" id="search-input" class="studio-search-input" placeholder="Search emojis & icons..." autocomplete="off" />
+                    <button id="clear-search" class="clear-search-btn" title="Clear Search" style="display: none;">✕</button>
+                </div>
+
+                <!-- Category Popover Filter Button -->
+                <button id="btn-category-popover" class="filter-dropdown-btn" title="Filter by Category">
+                    <svg class="filter-funnel-svg" width="12" height="12" viewBox="0 0 24 24"><path fill="currentColor" d="M10 18h4v-2h-4v2zM3 6v2h18V6H3zm3 7h12v-2H6v2z"/></svg>
+                    <span id="current-filter-label">All</span>
+                    <svg class="chevron-svg" width="10" height="10" viewBox="0 0 24 24"><path fill="currentColor" d="M7 10l5 5 5-5z"/></svg>
+                </button>
+
+                <!-- Library Select (Shown when Icons tab active) -->
+                <div id="icon-controls-inline" class="icon-controls-inline" style="display: none;">
+                    <select id="icon-library-select" class="library-dropdown-styled" title="Select Icon Library">
+                        <!-- Populated dynamically -->
+                    </select>
+                    <div class="color-picker-wrapper" title="Default Icon Color">
+                        <input type="color" id="quick-icon-color" value="#ffffff" />
+                        <span class="color-preview-dot" id="color-preview-dot"></span>
+                    </div>
+                </div>
+
+                <!-- Main Action Search Button -->
+                <button id="main-search-btn" class="search-action-btn" title="Search">
+                    <svg width="12" height="12" viewBox="0 0 24 24"><path fill="currentColor" d="M9.5 3a6.5 6.5 0 0 1 5.25 10.33l4.96 4.96a.75.75 0 0 1-1.06 1.06l-4.96-4.96A6.5 6.5 0 1 1 9.5 3zm0 1.5a5 5 0 1 0 0 10 5 5 0 0 0 0-10z"/></svg>
+                    <span>Search</span>
+                </button>
+            </div>
+
+            <!-- Floating Category Popover (MediaFetch Format & Ratio Style) -->
+            <div id="category-popover" class="category-popover" style="display: none;">
+                <div class="popover-header">CATEGORIES</div>
+                <div class="popover-list" id="popover-category-list">
+                    <!-- Populated dynamically with icon, title, desc, and checkmark -->
+                </div>
+            </div>
+
+            <!-- Emojis Sub-Toolbar (Skin tones & Style) -->
             <div id="emoji-subtoolbar" class="subtoolbar">
-                <nav class="category-tabs" id="category-tabs">
-                    <button class="tab-btn active" data-category="all" title="All Emojis">✨</button>
-                    <button class="tab-btn" data-category="Smileys & Emotion" title="Smileys & Emotion">😀</button>
-                    <button class="tab-btn" data-category="People & Body" title="People & Body">👋</button>
-                    <button class="tab-btn" data-category="Animals & Nature" title="Animals & Nature">🐶</button>
-                    <button class="tab-btn" data-category="Food & Drink" title="Food & Drink">🍔</button>
-                    <button class="tab-btn" data-category="Travel & Places" title="Travel & Places">🚗</button>
-                    <button class="tab-btn" data-category="Activities" title="Activities">⚽</button>
-                    <button class="tab-btn" data-category="Objects" title="Objects">💡</button>
-                    <button class="tab-btn" data-category="Symbols" title="Symbols">❤️</button>
-                    <button class="tab-btn" data-category="Flags" title="Flags">🇺🇸</button>
-                </nav>
                 <div class="skin-tone-selector" id="skin-tone-selector">
                     <button class="tone-btn active" data-tone="" style="background: #FFD225;" title="Default Tone"></button>
                     <button class="tone-btn" data-tone="🏻" style="background: #FADCBC;" title="Light Tone"></button>
@@ -53,36 +82,32 @@
                     <button class="tone-btn" data-tone="🏾" style="background: #9B643D;" title="Medium-Dark Tone"></button>
                     <button class="tone-btn" data-tone="🏿" style="background: #5C4438;" title="Dark Tone"></button>
                 </div>
-            </div>
-
-            <!-- Icons Sub-Toolbar (shown when tab is 'icons') -->
-            <div id="icon-subtoolbar" class="subtoolbar" style="display: none;">
-                <div class="icon-toolbar-row">
-                    <select id="icon-library-select" class="dropdown-styled" title="Select Icon Library">
-                        <!-- Populated dynamically from IconEngine -->
+                <div class="emoji-style-pill-group">
+                    <label style="font-size: 10px; color: var(--text-muted); margin-right: 4px;">Style:</label>
+                    <select id="style-select" class="dropdown-styled" style="font-size: 10.5px; padding: 2px 6px;">
+                        <option value="microsoft" selected>Microsoft 3D Fluent</option>
+                        <option value="apple">Apple HD</option>
+                        <option value="google">Google Android</option>
+                        <option value="twitter">Twemoji Flat</option>
                     </select>
-                    <!-- Quick Color Picker -->
-                    <div class="color-picker-wrapper" title="Default Icon Color">
-                        <input type="color" id="quick-icon-color" value="#ffffff" />
-                        <span class="color-preview-dot" id="color-preview-dot"></span>
-                    </div>
                 </div>
             </div>
 
-            <!-- Folders Sub-Toolbar (shown when tab is 'folders') -->
+            <!-- Folders Sub-Toolbar -->
             <div id="folder-subtoolbar" class="subtoolbar" style="display: none;">
                 <div class="folder-toolbar-row">
-                    <select id="linked-folder-select" class="dropdown-styled">
+                    <select id="linked-folder-select" class="dropdown-styled" style="flex: 1;">
                         <option value="">-- Select Linked Folder --</option>
                     </select>
                     <button id="btn-add-folder" class="secondary-btn" title="Link new local folder">+ Link Folder</button>
+                    <button id="btn-remove-folder" class="secondary-btn danger" title="Unlink selected folder">✕</button>
                 </div>
             </div>
 
-            <!-- Playlists Sub-Toolbar (shown when tab is 'playlists') -->
+            <!-- Playlists Sub-Toolbar -->
             <div id="playlist-subtoolbar" class="subtoolbar" style="display: none;">
                 <div class="playlist-toolbar-row">
-                    <select id="playlist-select" class="dropdown-styled">
+                    <select id="playlist-select" class="dropdown-styled" style="flex: 1;">
                         <!-- Populated dynamically -->
                     </select>
                     <button id="btn-new-playlist" class="secondary-btn" title="Create Playlist">+ New</button>
@@ -142,9 +167,23 @@
                 <div class="setting-item" id="size-control-group">
                     <div class="label-row">
                         <label for="size-slider">Default Insert Size</label>
-                        <span id="size-value">256px</span>
+                        <div class="num-unit-wrap">
+                            <input type="number" id="setting-size-input" class="num-box-styled" min="16" max="2048" step="16" value="256" />
+                            <span class="unit-tag">px</span>
+                        </div>
                     </div>
                     <input type="range" id="size-slider" min="64" max="1024" step="64" value="256">
+                </div>
+
+                <div class="setting-item" id="stroke-control-group">
+                    <div class="label-row">
+                        <label for="setting-stroke-slider">Default Stroke Width</label>
+                        <div class="num-unit-wrap">
+                            <input type="number" id="setting-stroke-input" class="num-box-styled" min="0.5" max="10" step="0.25" value="2" />
+                            <span class="unit-tag">px</span>
+                        </div>
+                    </div>
+                    <input type="range" id="setting-stroke-slider" min="0.5" max="6" step="0.25" value="2">
                 </div>
 
                 <!-- API Keys & Custom CDN Guide -->
@@ -254,17 +293,23 @@
 
                     <div class="control-row" id="stroke-control-row">
                         <label>Stroke Width</label>
-                        <div class="slider-val-group">
-                            <input type="range" id="modal-stroke-slider" min="1" max="4" step="0.5" value="2" />
-                            <span id="modal-stroke-val">2.0px</span>
+                        <div class="slider-input-duo">
+                            <input type="range" id="modal-stroke-slider" min="0.5" max="6" step="0.25" value="2" />
+                            <div class="num-unit-wrap">
+                                <input type="number" id="modal-stroke-input" class="num-box-styled" min="0.5" max="10" step="0.25" value="2" />
+                                <span class="unit-tag">px</span>
+                            </div>
                         </div>
                     </div>
 
                     <div class="control-row">
                         <label>Output Size</label>
-                        <div class="slider-val-group">
-                            <input type="range" id="modal-size-slider" min="64" max="1024" step="64" value="256" />
-                            <span id="modal-size-val">256px</span>
+                        <div class="slider-input-duo">
+                            <input type="range" id="modal-size-slider" min="16" max="1024" step="16" value="256" />
+                            <div class="num-unit-wrap">
+                                <input type="number" id="modal-size-input" class="num-box-styled" min="16" max="2048" step="16" value="256" />
+                                <span class="unit-tag">px</span>
+                            </div>
                         </div>
                     </div>
 

@@ -129,11 +129,135 @@ function updateStatus(msg, type = 'info') {
     }
 }
 
+// Category Definitions for Emojis
+const EMOJI_CATEGORIES = [
+    { id: "all", label: "All Emojis", icon: "✨", desc: "All standard Unicode emojis" },
+    { id: "Smileys & Emotion", label: "Smileys & Emotion", icon: "😀", desc: "Faces, emotions & expressions" },
+    { id: "People & Body", label: "People & Body", icon: "👋", desc: "Hands, body parts & people" },
+    { id: "Animals & Nature", label: "Animals & Nature", icon: "🐶", desc: "Animals, plants & nature" },
+    { id: "Food & Drink", label: "Food & Drink", icon: "🍔", desc: "Food, drinks & fruit" },
+    { id: "Travel & Places", label: "Travel & Places", icon: "🚗", desc: "Vehicles, buildings & maps" },
+    { id: "Activities", label: "Activities", icon: "⚽", desc: "Sports, hobbies & games" },
+    { id: "Objects", label: "Objects", icon: "💡", desc: "Tools, gadgets, office & music" },
+    { id: "Symbols", label: "Symbols", icon: "❤️", desc: "Hearts, signs & math symbols" },
+    { id: "Flags", label: "Flags", icon: "🇺🇸", desc: "Country & regional flags" }
+];
+
+// Dynamic Category Bar & Popover Engine
+function updateCategoryBarAndPopover() {
+    const pillsBar = document.getElementById('category-pills-bar');
+    const popoverList = document.getElementById('popover-category-list');
+    const filterLabel = document.getElementById('current-filter-label');
+    if (!pillsBar || !popoverList) return;
+
+    let categories = [];
+    if (currentTab === 'emojis') {
+        categories = EMOJI_CATEGORIES;
+    } else if (currentTab === 'icons') {
+        const libSelect = document.getElementById('icon-library-select');
+        const selectedPrefix = libSelect ? libSelect.value : 'all';
+        categories = IconEngine.getCategories ? IconEngine.getCategories(selectedPrefix) : [];
+    } else if (currentTab === 'folders') {
+        categories = [
+            { id: "all", label: "All Local Files", icon: "📁", desc: "All icons & images in linked folders" },
+            { id: "svg", label: "Vectors (SVG)", icon: "📐", desc: "Scalable vector graphics" },
+            { id: "png", label: "Images (PNG/JPG)", icon: "🖼️", desc: "Raster graphics & photos" }
+        ];
+    } else if (currentTab === 'playlists') {
+        const playlists = AssetManager.getPlaylists();
+        categories = playlists.map(pl => ({
+            id: pl.id,
+            label: pl.name,
+            icon: pl.id === 'favs' ? '★' : '📋',
+            desc: `${pl.items ? pl.items.length : 0} items saved`
+        }));
+        if (categories.length === 0) {
+            categories = [{ id: "favs", label: "Favorites", icon: "★", desc: "Your starred assets" }];
+        }
+    }
+
+    if (!categories.some(c => c.id === currentCategory)) {
+        currentCategory = categories[0] ? categories[0].id : 'all';
+    }
+
+    const activeCatObj = categories.find(c => c.id === currentCategory) || categories[0];
+    if (filterLabel && activeCatObj) {
+        filterLabel.textContent = activeCatObj.label.replace(/^[^\w\s]+\s*/, '');
+    }
+
+    // Populate Horizontal Pills Bar
+    pillsBar.innerHTML = '';
+    categories.forEach(cat => {
+        const pill = document.createElement('button');
+        pill.className = `platform-pill ${cat.id === currentCategory ? 'active' : ''}`;
+        pill.dataset.cat = cat.id;
+        pill.innerHTML = `<span>${cat.icon ? cat.icon + ' ' : ''}${cat.label}</span>`;
+        pill.addEventListener('click', () => {
+            selectCategory(cat.id, cat.label);
+        });
+        pillsBar.appendChild(pill);
+    });
+
+    // Populate Floating Popover
+    popoverList.innerHTML = '';
+    categories.forEach(cat => {
+        const item = document.createElement('div');
+        const isActive = cat.id === currentCategory;
+        item.className = `popover-item ${isActive ? 'active' : ''}`;
+        item.dataset.cat = cat.id;
+        item.innerHTML = `
+            <span class="popover-icon">${cat.icon || '•'}</span>
+            <div class="popover-text">
+                <div class="popover-title">${cat.label}</div>
+                <div class="popover-desc">${cat.desc || ''}</div>
+            </div>
+            ${isActive ? '<span class="popover-check">✓</span>' : ''}
+        `;
+        item.addEventListener('click', () => {
+            selectCategory(cat.id, cat.label);
+            closeCategoryPopover();
+        });
+        popoverList.appendChild(item);
+    });
+}
+
+function selectCategory(catId, catLabel) {
+    currentCategory = catId;
+    const filterLabel = document.getElementById('current-filter-label');
+    if (filterLabel && catLabel) {
+        filterLabel.textContent = catLabel.replace(/^[^\w\s]+\s*/, '');
+    }
+    document.querySelectorAll('#category-pills-bar .platform-pill').forEach(p => {
+        p.classList.toggle('active', p.dataset.cat === catId);
+    });
+    document.querySelectorAll('#popover-category-list .popover-item').forEach(it => {
+        const isActive = (it.dataset.cat === catId);
+        it.classList.toggle('active', isActive);
+        let check = it.querySelector('.popover-check');
+        if (isActive && !check) {
+            const span = document.createElement('span');
+            span.className = 'popover-check';
+            span.textContent = '✓';
+            it.appendChild(span);
+        } else if (!isActive && check) {
+            check.remove();
+        }
+    });
+    renderCurrentTab();
+}
+
+function closeCategoryPopover() {
+    const popoverEl = document.getElementById('category-popover');
+    const btnPopover = document.getElementById('btn-category-popover');
+    if (popoverEl) popoverEl.style.display = 'none';
+    if (btnPopover) btnPopover.classList.remove('active');
+}
+
 // Tab Switching
 function initTabs() {
-    const tabButtons = document.querySelectorAll('.nav-tab-btn');
+    const tabButtons = document.querySelectorAll('.studio-tab, .nav-tab-btn');
     const emojiSub = document.getElementById('emoji-subtoolbar');
-    const iconSub = document.getElementById('icon-subtoolbar');
+    const iconControls = document.getElementById('icon-controls-inline');
     const folderSub = document.getElementById('folder-subtoolbar');
     const playlistSub = document.getElementById('playlist-subtoolbar');
 
@@ -142,15 +266,42 @@ function initTabs() {
             tabButtons.forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
             currentTab = btn.dataset.tab;
+            currentCategory = 'all';
 
             if (emojiSub) emojiSub.style.display = (currentTab === 'emojis') ? 'flex' : 'none';
-            if (iconSub) iconSub.style.display = (currentTab === 'icons') ? 'flex' : 'none';
+            if (iconControls) iconControls.style.display = (currentTab === 'icons') ? 'flex' : 'none';
             if (folderSub) folderSub.style.display = (currentTab === 'folders') ? 'flex' : 'none';
             if (playlistSub) playlistSub.style.display = (currentTab === 'playlists') ? 'flex' : 'none';
 
+            closeCategoryPopover();
+            updateCategoryBarAndPopover();
             renderCurrentTab();
         });
     });
+
+    // Wire Popover Toggle
+    const btnPopover = document.getElementById('btn-category-popover');
+    const popoverEl = document.getElementById('category-popover');
+    if (btnPopover && popoverEl) {
+        btnPopover.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const isOpen = popoverEl.style.display === 'flex';
+            if (isOpen) {
+                closeCategoryPopover();
+            } else {
+                popoverEl.style.display = 'flex';
+                btnPopover.classList.add('active');
+            }
+        });
+
+        document.addEventListener('click', (e) => {
+            if (popoverEl.style.display === 'flex' && !popoverEl.contains(e.target) && e.target !== btnPopover && !btnPopover.contains(e.target)) {
+                closeCategoryPopover();
+            }
+        });
+    }
+
+    updateCategoryBarAndPopover();
 }
 
 function renderCurrentTab() {
@@ -166,10 +317,10 @@ function renderCurrentTab() {
 }
 
 // ----------------------------------------------------
-// TAB 1: EMOJIS
+// TAB 1: EMOJIS (Throttled for 4GB-8GB Low RAM Devices)
 // ----------------------------------------------------
 let displayedEmojiCount = 0;
-const CHUNK_SIZE = 100;
+const CHUNK_SIZE = 60;
 let currentFilteredEmojis = [];
 
 function renderEmojis(reset = true) {
@@ -284,7 +435,7 @@ function getEmojiDownloadUrl(emojiChar, style, format) {
 let currentIconList = [];
 let displayedIconCount = 0;
 let isIconLoading = false;
-const ICON_CHUNK_SIZE = 100;
+const ICON_CHUNK_SIZE = 60;
 
 async function renderIcons(reset = true) {
     const librarySelect = document.getElementById('icon-library-select');
@@ -299,19 +450,20 @@ async function renderIcons(reset = true) {
         updateStatus("Loading icon collection...");
 
         try {
-            currentIconList = await IconEngine.searchIcons(query, selectedPrefix);
+            if (query) {
+                currentIconList = await IconEngine.searchIcons(query, selectedPrefix);
+            } else if (!selectedPrefix || selectedPrefix === 'all') {
+                currentIconList = await IconEngine.getAllLibrariesStream();
+            } else {
+                currentIconList = await IconEngine.getCollectionIcons(selectedPrefix);
+            }
 
-            // In All Libraries without search query, prefetch and stream the top collections in the background
-            if ((!selectedPrefix || selectedPrefix === 'all') && !query) {
-                IconEngine.getAllLibrariesStream().then(fullStream => {
-                    if (currentTab === 'icons' && (!searchQuery || !searchQuery.trim())) {
-                        currentIconList = fullStream;
-                        updateStatus(`Showing ${displayedIconCount} of ${currentIconList.length.toLocaleString()} icons (scroll for more)`);
-                    }
-                }).catch(e => console.warn("All libraries stream prefetch error:", e));
+            // Filter by official library category if selected
+            if (currentCategory && currentCategory !== 'all') {
+                currentIconList = IconEngine.filterIconsByCategory(currentIconList, currentCategory, selectedPrefix);
             }
         } catch (err) {
-            console.error("searchIcons error:", err);
+            console.error("renderIcons error:", err);
             currentIconList = [];
         }
 
@@ -406,6 +558,8 @@ async function loadMoreIcons() {
 // ----------------------------------------------------
 // TAB 3: LOCAL FOLDERS
 // ----------------------------------------------------
+// TAB 3: LOCAL FOLDERS
+// ----------------------------------------------------
 function renderFolders() {
     assetGrid.innerHTML = '';
     noResults.style.display = 'none';
@@ -415,21 +569,46 @@ function renderFolders() {
 
     if (!folderPath) {
         assetGrid.innerHTML = `
-            <div style="grid-column: 1 / -1; text-align: center; padding: 40px 20px; color: #8e8e8e;">
-                <p style="font-size: 13px; font-weight: 500; margin-bottom: 6px;">No local folder selected</p>
-                <p style="font-size: 11px;">Click <b>"+ Link Folder"</b> above to connect your local icons, stickers, or Drive desktop folder.</p>
+            <div style="grid-column: 1 / -1; text-align: center; padding: 48px 14px; color: var(--text-muted);">
+                <div style="font-size: 38px; margin-bottom: 10px;">📁</div>
+                <div style="font-size: 13.5px; font-weight: 600; color: var(--text-primary); margin-bottom: 6px;">No Linked Folder Selected</div>
+                <div style="font-size: 11px; margin-bottom: 16px; color: var(--text-secondary); max-width: 260px; margin-left: auto; margin-right: auto;">Select or link your local SVG/PNG icons, stickers, client assets, or Google Drive folder.</div>
+                <button id="btn-browse-empty-folder" class="primary-btn" style="padding: 7px 18px;">+ Link Folder</button>
             </div>
         `;
+        const btnEmpty = document.getElementById('btn-browse-empty-folder');
+        if (btnEmpty) {
+            btnEmpty.addEventListener('click', () => {
+                const btn = document.getElementById('btn-add-folder');
+                if (btn) btn.click();
+            });
+        }
+        updateStatus("No local folder selected.");
         return;
     }
 
-    const items = AssetManager.scanFolder(folderPath);
+    let items = AssetManager.scanFolder(folderPath);
+
+    // Apply category filter for folders: 'all', 'svg', 'png'
+    if (currentCategory === 'svg') {
+        items = items.filter(it => it.ext === '.svg');
+    } else if (currentCategory === 'png') {
+        items = items.filter(it => it.ext !== '.svg');
+    }
+
+    // Apply search filter
+    if (searchQuery) {
+        const q = searchQuery.toLowerCase();
+        items = items.filter(it => it.name.toLowerCase().includes(q));
+    }
+
     if (items.length === 0) {
         assetGrid.innerHTML = `
-            <div style="grid-column: 1 / -1; text-align: center; padding: 40px 20px; color: #8e8e8e;">
-                <p>No supported media found in this folder (.svg, .png, .jpg, .webp)</p>
+            <div style="grid-column: 1 / -1; text-align: center; padding: 40px 20px; color: var(--text-muted);">
+                <p>No matching files found in this folder (.svg, .png, .jpg, .webp)</p>
             </div>
         `;
+        updateStatus("0 files found in folder.");
         return;
     }
 
@@ -442,6 +621,11 @@ function renderFolders() {
         img.src = `file://${item.fullPath.replace(/\\/g, '/')}`;
         card.appendChild(img);
 
+        const badge = document.createElement('span');
+        badge.className = 'asset-badge';
+        badge.textContent = item.ext.replace('.', '');
+        card.appendChild(badge);
+
         card.addEventListener('click', () => {
             openCustomizer({
                 type: 'local',
@@ -453,6 +637,8 @@ function renderFolders() {
 
         assetGrid.appendChild(card);
     });
+
+    updateStatus(`Showing ${items.length} files from ${path ? path.basename(folderPath) : folderPath}`);
 }
 
 // ----------------------------------------------------
@@ -547,6 +733,16 @@ async function openCustomizer(item) {
         if (strokeControlRow) strokeControlRow.style.display = 'none';
     }
 
+    const curSize = Settings.get('insertSize') || 256;
+    if (modalSizeSlider) modalSizeSlider.value = curSize;
+    const modalSizeInput = document.getElementById('modal-size-input');
+    if (modalSizeInput) modalSizeInput.value = curSize;
+
+    const curStroke = Settings.get('strokeWidth') || 2.0;
+    if (modalStrokeSlider) modalStrokeSlider.value = curStroke;
+    const modalStrokeInput = document.getElementById('modal-stroke-input');
+    if (modalStrokeInput) modalStrokeInput.value = curStroke;
+
     updateCustomizerPreview();
     if (customizerModal) customizerModal.style.display = 'flex';
 }
@@ -556,7 +752,8 @@ async function updateCustomizerPreview() {
     previewRenderBox.innerHTML = '';
 
     const color = (modalColorHex && modalColorHex.value) || '#ffffff';
-    const strokeWidth = (modalStrokeSlider && parseFloat(modalStrokeSlider.value)) || 2;
+    const strokeInput = document.getElementById('modal-stroke-input');
+    const strokeWidth = (strokeInput && parseFloat(strokeInput.value)) || (modalStrokeSlider && parseFloat(modalStrokeSlider.value)) || 2;
 
     if (activeCustomizerItem.type === 'emoji') {
         if (currentStyle === 'apple' || currentStyle === 'microsoft') {
@@ -640,9 +837,11 @@ async function insertActiveCustomizerItem() {
     if (customizerModal) customizerModal.style.display = 'none';
 
     const item = activeCustomizerItem;
-    const size = (modalSizeSlider && parseInt(modalSizeSlider.value, 10)) || 256;
+    const modalSizeInput = document.getElementById('modal-size-input');
+    const modalStrokeInput = document.getElementById('modal-stroke-input');
+    const size = (modalSizeInput && parseInt(modalSizeInput.value, 10)) || (modalSizeSlider && parseInt(modalSizeSlider.value, 10)) || 256;
     const color = (modalColorHex && modalColorHex.value) || '#ffffff';
-    const strokeWidth = (modalStrokeSlider && parseFloat(modalStrokeSlider.value)) || 2;
+    const strokeWidth = (modalStrokeInput && parseFloat(modalStrokeInput.value)) || (modalStrokeSlider && parseFloat(modalStrokeSlider.value)) || 2;
     const isPremiere = (hostApp === 'PPRO');
 
     updateStatus(`Preparing ${item.name}...`, 'info');
@@ -790,11 +989,49 @@ document.addEventListener('DOMContentLoaded', () => {
             });
 
             libSelect.addEventListener('change', () => {
+                currentCategory = 'all';
+                updateCategoryBarAndPopover();
                 if (currentTab === 'icons') renderIcons();
             });
         }
     } catch (e) {
         console.warn("libSelect init error:", e);
+    }
+
+    // Native Adobe Folder Selection Dialog (Zero OS Shell / Prompt)
+    function pickFolderNative(callback) {
+        try {
+            const cepFs = window.cep && window.cep.fs;
+            if (cepFs && typeof cepFs.showOpenDialogEx === 'function') {
+                const res = cepFs.showOpenDialogEx(false, true, "Select Folder for Icons & Assets", "", []);
+                if (res && res.data && res.data.length > 0 && res.data[0]) {
+                    callback(res.data[0]);
+                    return;
+                } else if (res && Array.isArray(res.data)) {
+                    return; // user canceled
+                }
+            }
+            if (cepFs && typeof cepFs.showOpenDialog === 'function') {
+                const res = cepFs.showOpenDialog(false, true, "Select Folder for Icons & Assets", "", []);
+                if (res && res.data && res.data.length > 0 && res.data[0]) {
+                    callback(res.data[0]);
+                    return;
+                } else if (res && Array.isArray(res.data)) {
+                    return;
+                }
+            }
+        } catch (e) {
+            console.warn("cep.fs folder dialog error:", e);
+        }
+        // Fallback: Adobe ExtendScript Folder.selectDialog
+        if (typeof csInterface !== 'undefined') {
+            csInterface.evalScript('EMOJI_HOST.selectFolderDialog("Select Folder for Icons & Assets")', function(res) {
+                const cleaned = (res || "").trim();
+                if (cleaned && !cleaned.startsWith("ERROR") && cleaned !== "undefined" && cleaned !== "null" && cleaned !== "false") {
+                    callback(cleaned);
+                }
+            });
+        }
     }
 
     // Populate Linked Folders dropdown
@@ -817,19 +1054,30 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // Link Folder Button
+    // Link Folder Button (Smooth Native Picker)
     const btnAddFolder = document.getElementById('btn-add-folder');
     if (btnAddFolder) {
         btnAddFolder.addEventListener('click', () => {
-            const defaultDoc = (os && path) ? path.join(os.homedir(), "Documents") : "C:\\";
-            const folder = prompt("Enter local folder path (e.g. C:\\Users\\...\\MyIcons or G:\\My Drive\\Icons):", defaultDoc);
-            if (folder && fs && fs.existsSync(folder)) {
-                AssetManager.addLinkedFolder(folder);
+            pickFolderNative((folder) => {
+                if (folder && fs && fs.existsSync(folder)) {
+                    AssetManager.addLinkedFolder(folder);
+                    updateFolderDropdown();
+                    folderSelect.value = folder;
+                    renderFolders();
+                }
+            });
+        });
+    }
+
+    // Unlink Folder Button
+    const btnRemoveFolder = document.getElementById('btn-remove-folder');
+    if (btnRemoveFolder) {
+        btnRemoveFolder.addEventListener('click', () => {
+            const current = folderSelect ? folderSelect.value : null;
+            if (current) {
+                AssetManager.removeLinkedFolder(current);
                 updateFolderDropdown();
-                folderSelect.value = folder;
                 renderFolders();
-            } else if (folder) {
-                alert("Folder does not exist. Please verify path.");
             }
         });
     }
@@ -883,12 +1131,36 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // Search bar
+    // Debounced Search Bar & Dedicated Search Button
+    let searchDebounceTimer = null;
     if (searchInput) {
         searchInput.addEventListener('input', () => {
-            searchQuery = searchInput.value;
-            if (clearSearchBtn) clearSearchBtn.style.display = searchQuery ? 'block' : 'none';
+            const val = searchInput.value;
+            if (clearSearchBtn) clearSearchBtn.style.display = val ? 'block' : 'none';
+            clearTimeout(searchDebounceTimer);
+            searchDebounceTimer = setTimeout(() => {
+                searchQuery = val;
+                renderCurrentTab();
+            }, 180);
+        });
+
+        searchInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                clearTimeout(searchDebounceTimer);
+                searchQuery = searchInput.value;
+                renderCurrentTab();
+                document.querySelector('.emoji-container')?.scrollTo({ top: 0, behavior: 'smooth' });
+            }
+        });
+    }
+
+    const mainSearchBtn = document.getElementById('main-search-btn');
+    if (mainSearchBtn) {
+        mainSearchBtn.addEventListener('click', () => {
+            clearTimeout(searchDebounceTimer);
+            searchQuery = searchInput ? searchInput.value : '';
             renderCurrentTab();
+            document.querySelector('.emoji-container')?.scrollTo({ top: 0, behavior: 'smooth' });
         });
     }
 
@@ -898,19 +1170,6 @@ document.addEventListener('DOMContentLoaded', () => {
             searchQuery = '';
             clearSearchBtn.style.display = 'none';
             renderCurrentTab();
-        });
-    }
-
-    // Category Tabs (Emojis)
-    const categoryTabs = document.getElementById('category-tabs');
-    if (categoryTabs) {
-        categoryTabs.addEventListener('click', (e) => {
-            const btn = e.target.closest('.tab-btn');
-            if (!btn) return;
-            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-            btn.classList.add('active');
-            currentCategory = btn.dataset.category;
-            renderEmojis(true);
         });
     }
 
@@ -999,16 +1258,46 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // Wire Size Slider
+    // Wire Settings Size: Slider <-> Manual Number Input
     const sizeSlider = document.getElementById('size-slider');
-    const sizeValue = document.getElementById('size-value');
-    if (sizeSlider && sizeValue) {
-        sizeSlider.value = Settings.get('insertSize') || 256;
-        sizeValue.textContent = `${sizeSlider.value}px`;
+    const settingSizeInput = document.getElementById('setting-size-input');
+    if (sizeSlider) {
+        const savedSize = Settings.get('insertSize') || 256;
+        sizeSlider.value = savedSize;
+        if (settingSizeInput) settingSizeInput.value = savedSize;
+
         sizeSlider.addEventListener('input', () => {
-            sizeValue.textContent = `${sizeSlider.value}px`;
+            if (settingSizeInput) settingSizeInput.value = sizeSlider.value;
             Settings.set('insertSize', parseInt(sizeSlider.value, 10));
         });
+        if (settingSizeInput) {
+            settingSizeInput.addEventListener('input', () => {
+                let val = parseInt(settingSizeInput.value, 10) || 64;
+                sizeSlider.value = val;
+                Settings.set('insertSize', val);
+            });
+        }
+    }
+
+    // Wire Settings Stroke: Slider <-> Manual Number Input
+    const settingStrokeSlider = document.getElementById('setting-stroke-slider');
+    const settingStrokeInput = document.getElementById('setting-stroke-input');
+    if (settingStrokeSlider) {
+        const savedStroke = Settings.get('strokeWidth') || 2.0;
+        settingStrokeSlider.value = savedStroke;
+        if (settingStrokeInput) settingStrokeInput.value = savedStroke;
+
+        settingStrokeSlider.addEventListener('input', () => {
+            if (settingStrokeInput) settingStrokeInput.value = settingStrokeSlider.value;
+            Settings.set('strokeWidth', parseFloat(settingStrokeSlider.value));
+        });
+        if (settingStrokeInput) {
+            settingStrokeInput.addEventListener('input', () => {
+                let val = parseFloat(settingStrokeInput.value) || 1.0;
+                settingStrokeSlider.value = val;
+                Settings.set('strokeWidth', val);
+            });
+        }
     }
 
     // API Guide Modal Wiring
@@ -1082,7 +1371,39 @@ document.addEventListener('DOMContentLoaded', () => {
         btnInsertCust.onclick = insertActiveCustomizerItem;
     }
 
-    // Customizer Controls updates
+    // Customizer Controls: Slider <-> Manual Number Input Sync
+    const modalStrokeSlider = document.getElementById('modal-stroke-slider');
+    const modalStrokeInput = document.getElementById('modal-stroke-input');
+    if (modalStrokeSlider) {
+        modalStrokeSlider.addEventListener('input', () => {
+            if (modalStrokeInput) modalStrokeInput.value = modalStrokeSlider.value;
+            updateCustomizerPreview();
+        });
+        if (modalStrokeInput) {
+            modalStrokeInput.addEventListener('input', () => {
+                let val = parseFloat(modalStrokeInput.value) || 1.0;
+                modalStrokeSlider.value = val;
+                updateCustomizerPreview();
+            });
+        }
+    }
+
+    const modalSizeSlider = document.getElementById('modal-size-slider');
+    const modalSizeInput = document.getElementById('modal-size-input');
+    if (modalSizeSlider) {
+        modalSizeSlider.addEventListener('input', () => {
+            if (modalSizeInput) modalSizeInput.value = modalSizeSlider.value;
+            updateCustomizerPreview();
+        });
+        if (modalSizeInput) {
+            modalSizeInput.addEventListener('input', () => {
+                let val = parseInt(modalSizeInput.value, 10) || 64;
+                modalSizeSlider.value = val;
+                updateCustomizerPreview();
+            });
+        }
+    }
+
     if (modalColorPicker && modalColorHex) {
         modalColorPicker.addEventListener('input', () => {
             modalColorHex.value = modalColorPicker.value;
@@ -1091,17 +1412,6 @@ document.addEventListener('DOMContentLoaded', () => {
         modalColorHex.addEventListener('input', () => {
             modalColorPicker.value = modalColorHex.value;
             updateCustomizerPreview();
-        });
-    }
-    if (modalStrokeSlider && modalStrokeVal) {
-        modalStrokeSlider.addEventListener('input', () => {
-            modalStrokeVal.textContent = `${parseFloat(modalStrokeSlider.value).toFixed(1)}px`;
-            updateCustomizerPreview();
-        });
-    }
-    if (modalSizeSlider && modalSizeVal) {
-        modalSizeSlider.addEventListener('input', () => {
-            modalSizeVal.textContent = `${modalSizeSlider.value}px`;
         });
     }
 

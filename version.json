@@ -1,8 +1,8 @@
 {
-  "version": "2.2.0",
+  "version": "2.3.0",
   "name": "Emoji & Icon Studio by Kairesh",
-  "zxpUrl": "https://raw.githubusercontent.com/Kairesh/Emoji-Library-Updates/main/Emoji-Library-v2.2.0.zxp",
-  "backupZxpUrl": "https://cdn.jsdelivr.net/gh/Kairesh/Emoji-Library-Updates@main/Emoji-Library-v2.2.0.zxp",
+  "zxpUrl": "https://raw.githubusercontent.com/Kairesh/Emoji-Library-Updates/main/Emoji-Library-v2.3.0.zxp",
+  "backupZxpUrl": "https://cdn.jsdelivr.net/gh/Kairesh/Emoji-Library-Updates@main/Emoji-Library-v2.3.0.zxp",
   "updateUrl": "https://github.com/Kairesh/Emoji-Library-Updates/releases/latest",
-  "releaseNotes": "v2.2.0 Studio Major Update Ready!\n• Full infinite scrolling across 200,000+ vector icons with mousewheel support & custom scrollbar\n• Native vector animation in After Effects (Trim Paths & continuous rotation) for Line MD icons\n• 3-tier emoji fallback: 0 broken emoji boxes (🫦 biting lip, 🫥 dotted face, etc.)\n• Live dynamic counter & streamlined performance"
+  "releaseNotes": "v2.3.0 MediaFetch AMOLED Dark Studio & Performance Update!\n• Full AMOLED true dark theme with Apple HIG typography & deep contrast\n• Official category pills & floating popover menu tailored to each icon library\n• Native smooth Adobe folder picker with zero OS prompts or shell popups\n• Precision slider + manual number typing for stroke width and size\n• Ultra-low RAM optimization: hardware CSS containment & DOM virtualization for 4GB-8GB devices"
 }

@@ -50,15 +50,70 @@ const PluginUpdater = (function () {
     }
 
     async function fetchManifest() {
-        for (const url of MANIFEST_URLS) {
+        // 1. Primary: GitHub Contents API (Real-time, zero CDN caching)
+        try {
+            const apiRes = await Net.request("https://api.github.com/repos/Kairesh/Emoji-Library-Updates/contents/version.json?ref=main", {
+                headers: {
+                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AdobeCEP/11.0",
+                    "Accept": "application/vnd.github.v3+json",
+                    "Cache-Control": "no-cache, no-store, must-revalidate",
+                    "Pragma": "no-cache"
+                }
+            });
+            if (apiRes) {
+                const apiJson = JSON.parse(apiRes);
+                if (apiJson && apiJson.content) {
+                    const decoded = (typeof Buffer !== "undefined")
+                        ? Buffer.from(apiJson.content, 'base64').toString('utf8')
+                        : atob(apiJson.content.replace(/\s/g, ''));
+                    const parsed = JSON.parse(decoded);
+                    if (parsed && parsed.version) {
+                        console.log("[Updater] Manifest from GitHub API:", parsed.version);
+                        return parsed;
+                    }
+                }
+            }
+        } catch (apiErr) {
+            console.warn("[Updater] GitHub API fetch warning:", apiErr.message);
+        }
+
+        // 2. Secondary: Raw GitHub with timestamp parameter
+        try {
+            const rawUrl = "https://raw.githubusercontent.com/Kairesh/Emoji-Library-Updates/main/version.json?_t=" + Date.now();
+            const text = await Net.request(rawUrl, {
+                headers: {
+                    "Cache-Control": "no-cache, no-store, must-revalidate",
+                    "Pragma": "no-cache"
+                }
+            });
+            if (text) {
+                const parsed = JSON.parse(text);
+                if (parsed && parsed.version) {
+                    console.log("[Updater] Manifest from raw GitHub:", parsed.version);
+                    return parsed;
+                }
+            }
+        } catch (rawErr) {
+            console.warn("[Updater] Raw GitHub fetch warning:", rawErr.message);
+        }
+
+        // 3. Fallback: Windows curl.exe if available
+        if (cp && os && os.platform() === 'win32') {
             try {
-                const bustUrl = url + (url.includes('?') ? '&' : '?') + '_t=' + Date.now();
-                const data = await Net.getJSON(bustUrl);
-                if (data && data.version) return data;
-            } catch (e) {
-                console.warn(`Manifest mirror failed for ${url}:`, e.message);
+                const curlCmd = `curl.exe -s -H "Cache-Control: no-cache" "https://raw.githubusercontent.com/Kairesh/Emoji-Library-Updates/main/version.json?_t=${Date.now()}"`;
+                const stdout = cp.execSync(curlCmd, { timeout: 4000, encoding: 'utf8' });
+                if (stdout && stdout.trim().startsWith('{')) {
+                    const parsed = JSON.parse(stdout);
+                    if (parsed && parsed.version) {
+                        console.log("[Updater] Manifest from curl fallback:", parsed.version);
+                        return parsed;
+                    }
+                }
+            } catch (curlErr) {
+                console.warn("[Updater] curl fallback warning:", curlErr.message);
             }
         }
+
         return null;
     }
 

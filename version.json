@@ -1,8 +1,8 @@
 {
-  "version": "2.8.6",
+  "version": "2.8.7",
   "name": "Emoji & Icon Studio by Kairesh",
   "zxpUrl": "https://raw.githubusercontent.com/Kairesh/Emoji-Library-Updates/main/Emoji-Library.zxp",
   "backupZxpUrl": "https://cdn.jsdelivr.net/gh/Kairesh/Emoji-Library-Updates@main/Emoji-Library.zxp",
   "updateUrl": "https://github.com/Kairesh/Emoji-Library-Updates/releases/latest",
-  "releaseNotes": "v2.8.6 Instant After Effects 1-Click Addition & Zero API Setup!\n• Instant Double-Click Insert: Double-clicking ANY card (emojis, icons, local files) immediately inserts it into your active After Effects Composition and Icons bin with 0 extra clicks!\n• Quick [+] Button: Hovering on any asset card now displays a [+] quick-insert button for instant 1-click placement.\n• Clean Settings (Zero API Setup): Removed the API key section from Settings. All 200,000+ icons and emojis work 100% free and unlocked through public open CDNs without needing any keys or configuration!\n• Drag & Drop Clarification: Premiere Pro supports direct timeline dragging; for After Effects (which restricts panel drag), double-click or [+] provides instant one-action insertion.\n• Storage & Cache Controls: Full zero-disk previewing and Settings cache cleaner."
+  "releaseNotes": "v2.8.7 Timeline Playhead Placement, True Icon Sizing & Asset Name Tooltips!\n• Playhead Timeline Placement: Assets are now placed precisely at the active Timeline Indicator / Playhead position in both After Effects and Premiere Pro!\n• True Icon Size: Assets now scale to the exact pixel size you choose in Settings or Customizer, maintaining razor-sharp vector fidelity.\n• Asset Name Tooltips: Hovering over any card or [+] button now clearly shows the real name of the icon, image, or emoji instead of generic text.\n• Full Drag & Drop: Dragging from panel directly into After Effects or Premiere Pro inserts the asset at your playhead and auto-sorts it into your 'Icons' project bin.\n• Zero API Keys: Completely clean Settings drawer with zero key configuration required."
 }

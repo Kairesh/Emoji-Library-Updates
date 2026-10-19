@@ -80,7 +80,7 @@ var EMOJI_HOST = {
     insertFootage: function(filePath, assetName, size, convertToShape, isAnimated) {
         try {
             if (this.isPremiereHost()) {
-                return this.prInsertFootage(filePath, assetName);
+                return this.prInsertFootage(filePath, assetName, size);
             } else {
                 return this.aeInsertFootage(filePath, assetName, size, convertToShape, isAnimated);
             }
@@ -230,7 +230,7 @@ var EMOJI_HOST = {
     aeInsertFootage: function(filePath, emojiName, targetSize, convertToShape, isAnimated) {
         // Absolute safety guard: If invoked inside Premiere Pro, immediately route to prInsertFootage!
         if (this.isPremiereHost()) {
-            return this.prInsertFootage(filePath, emojiName);
+            return this.prInsertFootage(filePath, emojiName, targetSize);
         }
 
         var comp = app.project.activeItem;
@@ -288,6 +288,11 @@ var EMOJI_HOST = {
             // Add to composition
             var layer = comp.layers.add(footageItem);
             layer.name = "Emoji - " + emojiName;
+
+            // Set start time exactly at current timeline playhead indicator
+            try {
+                layer.startTime = comp.time;
+            } catch (timeErr) {}
             
             // Position at center (handles separate Dimensions mode in AE)
             try {
@@ -308,6 +313,7 @@ var EMOJI_HOST = {
             }
             
             // Scale to match target size preserving aspect ratio (never distort landscape/portrait footage)
+            var uniformScale = 100;
             try {
                 var w = footageItem.width || layer.source.width || 128;
                 var h = footageItem.height || layer.source.height || 128;
@@ -316,7 +322,7 @@ var EMOJI_HOST = {
 
                 if (targetSize && targetSize > 0) {
                     var maxDim = Math.max(w, h);
-                    var uniformScale = (targetSize / maxDim) * 100;
+                    uniformScale = (targetSize / maxDim) * 100;
                     var scaleProp = layer.property("ADBE Transform Group").property("ADBE Scale");
                     if (scaleProp) {
                         scaleProp.setValue([uniformScale, uniformScale, 100]);
@@ -356,6 +362,19 @@ var EMOJI_HOST = {
                         if (comp.layers.length > origCount) {
                             var newShapeLayer = comp.selectedLayers[0] || comp.layers[1];
                             layer.remove();
+
+                            try {
+                                newShapeLayer.startTime = comp.time;
+                            } catch (_) {}
+
+                            if (targetSize && targetSize > 0) {
+                                try {
+                                    var shapeScaleProp = newShapeLayer.property("ADBE Transform Group").property("ADBE Scale");
+                                    if (shapeScaleProp) {
+                                        shapeScaleProp.setValue([uniformScale, uniformScale, 100]);
+                                    }
+                                } catch (_) {}
+                            }
 
                             // If this is an animated vector icon (line-md), add native AE motion graphics animation
                             if (isAnimated && newShapeLayer) {
@@ -419,7 +438,7 @@ var EMOJI_HOST = {
     // ----------------------------------------------------
     // PREMIERE PRO SPECIFIC METHODS
     // ----------------------------------------------------
-    prInsertFootage: function(filePath, emojiName) {
+    prInsertFootage: function(filePath, emojiName, targetSize) {
         try {
             var file = new File(filePath);
             if (!file.exists) {
@@ -599,6 +618,33 @@ var EMOJI_HOST = {
                     if (!inserted) { try { targetTrack.overwriteClip(projectItem, pSec); inserted = true; } catch (_) {} }
                 }
                 if (!inserted) { try { targetTrack.insertClip(projectItem, "0"); inserted = true; } catch (_) {} }
+            }
+
+            // Scale clip to true chosen size in Premiere Pro sequence
+            if (inserted && targetSize && targetSize > 0 && targetTrack) {
+                try {
+                    for (var ci = 0; ci < targetTrack.clips.numItems; ci++) {
+                        var cl = targetTrack.clips[ci];
+                        if (cl && cl.projectItem && cl.projectItem.nodeId === projectItem.nodeId) {
+                            if (Math.abs(cl.start.seconds - pSec) < 1.0) {
+                                for (var cIdx = 0; cIdx < cl.components.numItems; cIdx++) {
+                                    var compo = cl.components[cIdx];
+                                    if (compo && compo.displayName && compo.displayName.toLowerCase().indexOf("motion") !== -1) {
+                                        for (var pIdx = 0; pIdx < compo.properties.numItems; pIdx++) {
+                                            var prop = compo.properties[pIdx];
+                                            if (prop && prop.displayName && prop.displayName.toLowerCase().indexOf("scale") !== -1) {
+                                                var scaleVal = (targetSize / 1024.0) * 100.0;
+                                                prop.setValue(scaleVal, true);
+                                                break;
+                                            }
+                                        }
+                                    }
+                                }
+                                break;
+                            }
+                        }
+                    }
+                } catch (scalePrErr) {}
             }
 
             if (!inserted) {

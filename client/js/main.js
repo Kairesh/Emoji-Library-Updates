@@ -297,19 +297,27 @@ function setupCardDrag(card, item) {
     if (!card || !item) return;
     card.setAttribute('draggable', 'true');
 
-    // Tooltip instructions
-    card.title = isHostPremiere()
-        ? "Drag to Timeline/Bin | Double-Click to Insert | Click to Customize"
-        : "Double-Click or Click [+] to Insert into Comp | Click to Customize";
+    // Clean tooltip showing exact asset name / file name
+    let assetDisplayName = item.name || '';
+    if (!assetDisplayName) {
+        if (item.type === 'emoji') {
+            assetDisplayName = item.emojiChar || 'Emoji';
+        } else if (item.fullPath && path) {
+            assetDisplayName = path.basename(item.fullPath);
+        } else {
+            assetDisplayName = 'Asset';
+        }
+    }
+    card.title = assetDisplayName;
 
-    // Instant Double-Click: Direct 1-action insert into active Comp/Timeline without opening modal!
+    // Instant Double-Click: Direct 1-action insert into active Comp/Timeline at playhead without opening modal!
     card.addEventListener('dblclick', (e) => {
         e.stopPropagation();
         e.preventDefault();
         const localPath = prepareAssetFileSync(card, item);
         if (localPath) {
             const assetName = item.name || (item.type === 'emoji' ? 'Emoji' : 'Icon');
-            const size = Settings.get('defaultSize') || Settings.get('insertSize') || 256;
+            const size = Settings.get('insertSize') || 256;
             triggerHostImport(localPath, assetName, size, false);
             addToRecent(item);
         } else {
@@ -321,7 +329,7 @@ function setupCardDrag(card, item) {
     if (!card.querySelector('.asset-quick-insert-btn')) {
         const quickBtn = document.createElement('button');
         quickBtn.className = 'asset-quick-insert-btn';
-        quickBtn.title = isHostPremiere() ? 'Quick Insert to Timeline' : 'Quick Insert to Composition';
+        quickBtn.title = assetDisplayName;
         quickBtn.textContent = '+';
         quickBtn.addEventListener('click', (e) => {
             e.stopPropagation();
@@ -329,7 +337,7 @@ function setupCardDrag(card, item) {
             const localPath = prepareAssetFileSync(card, item);
             if (localPath) {
                 const assetName = item.name || (item.type === 'emoji' ? 'Emoji' : 'Icon');
-                const size = Settings.get('defaultSize') || Settings.get('insertSize') || 256;
+                const size = Settings.get('insertSize') || 256;
                 triggerHostImport(localPath, assetName, size, false);
                 addToRecent(item);
             } else {
@@ -363,26 +371,45 @@ function setupCardDrag(card, item) {
             if (isHostPremiere()) {
                 updateStatus(`Drop onto Premiere Timeline track or Project bin to insert!`, 'info');
             } else {
-                updateStatus(`After Effects blocks direct panel drag: Double-click or click [+] to insert into Comp!`, 'info');
+                updateStatus(`Drop onto Composition or Timeline to insert at playhead!`, 'info');
             }
         } catch (dragErr) {
             console.warn("Dragstart error:", dragErr);
         }
     });
 
-    card.addEventListener('dragend', () => {
+    card.addEventListener('dragend', (e) => {
         card.classList.remove('dragging');
-        // Let host app complete the drop import, then organize the newly added file into "Icons" bin
-        setTimeout(() => {
+
+        // Check if dragged outside the panel in After Effects
+        const isOutside = (e.clientX < 0 || e.clientX > window.innerWidth || e.clientY < 0 || e.clientY > window.innerHeight);
+
+        if (!isHostPremiere() && isOutside) {
+            // User dragged out of the panel and released over After Effects comp / timeline!
             try {
                 const localPath = prepareAssetFileSync(card, item);
                 if (localPath) {
-                    const safePath = localPath.replace(/\\/g, "\\\\");
-                    csInterface.evalScript(`EMOJI_HOST.organizeDroppedItem("${safePath}")`);
+                    const assetName = item.name || (item.type === 'emoji' ? 'Emoji' : 'Icon');
+                    const size = Settings.get('insertSize') || 256;
+                    triggerHostImport(localPath, assetName, size, false);
                     addToRecent(item);
                 }
-            } catch (_) {}
-        }, 350);
+            } catch (aeDropErr) {
+                console.warn("AE drag drop error:", aeDropErr);
+            }
+        } else {
+            // In Premiere Pro: Let host app complete the drop import, then organize the newly added file into "Icons" bin
+            setTimeout(() => {
+                try {
+                    const localPath = prepareAssetFileSync(card, item);
+                    if (localPath) {
+                        const safePath = localPath.replace(/\\/g, "\\\\");
+                        csInterface.evalScript(`EMOJI_HOST.organizeDroppedItem("${safePath}")`);
+                        addToRecent(item);
+                    }
+                } catch (_) {}
+            }, 350);
+        }
     });
 }
 

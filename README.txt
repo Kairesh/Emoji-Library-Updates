@@ -1,6 +1,6 @@
 ============================================================
            Emoji & Icon Studio for Adobe Premiere Pro & After Effects
-                           Version 2.8.4
+                           Version 2.8.6
 ============================================================
 
 A fast, responsive Adobe CEP extension providing instant access to

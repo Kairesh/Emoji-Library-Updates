@@ -297,6 +297,48 @@ function setupCardDrag(card, item) {
     if (!card || !item) return;
     card.setAttribute('draggable', 'true');
 
+    // Tooltip instructions
+    card.title = isHostPremiere()
+        ? "Drag to Timeline/Bin | Double-Click to Insert | Click to Customize"
+        : "Double-Click or Click [+] to Insert into Comp | Click to Customize";
+
+    // Instant Double-Click: Direct 1-action insert into active Comp/Timeline without opening modal!
+    card.addEventListener('dblclick', (e) => {
+        e.stopPropagation();
+        e.preventDefault();
+        const localPath = prepareAssetFileSync(card, item);
+        if (localPath) {
+            const assetName = item.name || (item.type === 'emoji' ? 'Emoji' : 'Icon');
+            const size = Settings.get('defaultSize') || Settings.get('insertSize') || 256;
+            triggerHostImport(localPath, assetName, size, false);
+            addToRecent(item);
+        } else {
+            openCustomizer(item);
+        }
+    });
+
+    // Quick Insert [+] button on card hover
+    if (!card.querySelector('.asset-quick-insert-btn')) {
+        const quickBtn = document.createElement('button');
+        quickBtn.className = 'asset-quick-insert-btn';
+        quickBtn.title = isHostPremiere() ? 'Quick Insert to Timeline' : 'Quick Insert to Composition';
+        quickBtn.textContent = '+';
+        quickBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            e.preventDefault();
+            const localPath = prepareAssetFileSync(card, item);
+            if (localPath) {
+                const assetName = item.name || (item.type === 'emoji' ? 'Emoji' : 'Icon');
+                const size = Settings.get('defaultSize') || Settings.get('insertSize') || 256;
+                triggerHostImport(localPath, assetName, size, false);
+                addToRecent(item);
+            } else {
+                openCustomizer(item);
+            }
+        });
+        card.appendChild(quickBtn);
+    }
+
     card.addEventListener('dragstart', (e) => {
         try {
             const localPath = prepareAssetFileSync(card, item);
@@ -321,7 +363,7 @@ function setupCardDrag(card, item) {
             if (isHostPremiere()) {
                 updateStatus(`Drop onto Premiere Timeline track or Project bin to insert!`, 'info');
             } else {
-                updateStatus(`Drop onto Project panel to import, or click card to customize & insert!`, 'info');
+                updateStatus(`After Effects blocks direct panel drag: Double-click or click [+] to insert into Comp!`, 'info');
             }
         } catch (dragErr) {
             console.warn("Dragstart error:", dragErr);
@@ -2282,52 +2324,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // API Guide Modal Wiring
-    const modalApiGuide = document.getElementById('modal-api-guide');
-    const btnOpenApiGuide = document.getElementById('btn-open-api-guide');
-    const btnCloseApiGuide = document.getElementById('btn-close-api-guide');
-    const btnDoneApiGuide = document.getElementById('btn-done-api-guide');
-    const linkGetGhToken = document.getElementById('link-get-gh-token');
-    const btnOpenGhBrowser = document.getElementById('btn-open-gh-browser');
-
-    if (btnOpenApiGuide && modalApiGuide) {
-        btnOpenApiGuide.addEventListener('click', (e) => {
-            e.preventDefault();
-            modalApiGuide.style.display = 'flex';
-        });
-    }
-    if (btnCloseApiGuide && modalApiGuide) {
-        btnCloseApiGuide.onclick = () => { modalApiGuide.style.display = 'none'; };
-    }
-    if (btnDoneApiGuide && modalApiGuide) {
-        btnDoneApiGuide.onclick = () => { modalApiGuide.style.display = 'none'; };
-    }
-
-    function openGhTokenPage(e) {
-        if (e) e.preventDefault();
-        const ghUrl = "https://github.com/settings/tokens";
-        if (cp) {
-            cp.exec(`start "" "${ghUrl}"`);
-        } else {
-            window.open(ghUrl, "_blank");
-        }
-    }
-    if (linkGetGhToken) linkGetGhToken.addEventListener('click', openGhTokenPage);
-    if (btnOpenGhBrowser) btnOpenGhBrowser.addEventListener('click', openGhTokenPage);
-
-    // Settings API keys
-    const btnSaveKeys = document.getElementById('btn-save-keys');
-    if (btnSaveKeys) {
-        btnSaveKeys.addEventListener('click', (e) => {
-            e.preventDefault();
-            const apiVal = document.getElementById('setting-iconify-api').value;
-            const ghVal = document.getElementById('setting-github-token').value;
-            Settings.set('iconifyCustomApiUrl', apiVal);
-            Settings.set('githubToken', ghVal);
-            updateStatus("Settings saved successfully!", "success");
-            alert("Settings saved successfully!");
-        });
-    }
 
     // Check updates
     const btnCheckUpdates = document.getElementById('btn-check-updates');

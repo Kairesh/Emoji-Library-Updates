@@ -2082,6 +2082,8 @@ document.addEventListener('DOMContentLoaded', () => {
             currentTone = btn.dataset.tone;
             renderEmojis(true);
         });
+    }
+
     function clearInternalCache() {
         const statusMsg = document.getElementById('cache-status-msg');
         const updateCacheStatus = (msg, isErr = false) => {

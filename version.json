@@ -1,8 +1,8 @@
 {
-  "version": "2.8.4",
+  "version": "2.8.5",
   "name": "Emoji & Icon Studio by Kairesh",
   "zxpUrl": "https://raw.githubusercontent.com/Kairesh/Emoji-Library-Updates/main/Emoji-Library.zxp",
   "backupZxpUrl": "https://cdn.jsdelivr.net/gh/Kairesh/Emoji-Library-Updates@main/Emoji-Library.zxp",
   "updateUrl": "https://github.com/Kairesh/Emoji-Library-Updates/releases/latest",
-  "releaseNotes": "v2.8.4 Single-Item Drop, Auto-Organized 'Icons' Bin & Local Folder Sync!\n• Single-Item Timeline Drop: Fixed duplicate file drops in Premiere Pro timeline — dragging drops exactly 1 clip cleanly onto your sequence!\n• Auto-Organized 'Icons' Bin: Dropped or inserted assets are automatically organized into an 'Icons' bin in Premiere Pro and After Effects project panels!\n• Local 'Icons' Folder: Automatically creates and saves all assets into an 'Icons' folder inside your selected/linked folder on disk!\n• Clear All Recents: Dedicated one-click button in Recents toolbar to easily clear all recent history.\n• Real-Time Folder Sync: Live updates when adding or removing items from local folders in Windows Explorer."
+  "releaseNotes": "v2.8.5 Zero-Disk Clutter for Low-End Devices & Clear Cache Button!\n• Zero-Disk Clutter: Removed background file generation on icon/emoji hover and exploration — browsing and previewing now uses 0MB of disk storage!\n• Clear Cache Button: Added a new 'Clear Cache' button in Settings to purge temporary downloaded icons and emojis without touching any linked local folders!\n• Single-Item Drag & Drop: Dragging onto Premiere Timeline inserts exactly 1 clip cleanly without duplicates.\n• Automatic 'Icons' Bin: Dropped and inserted assets auto-organize into an 'Icons' bin in Premiere Pro and After Effects.\n• Anti-Popup Loop Guard: Dismissing the update dialog snoozes it for the session."
 }

@@ -216,13 +216,23 @@
                 <button id="btn-save-keys" class="primary-btn" style="width: 100%; margin-top: 8px;">Save Settings</button>
             </div>
 
-            <!-- Project Asset Storage -->
-            <div class="setting-item">
-                <div class="label-row">
-                    <label>Assets Storage</label>
-                    <button id="open-assets-btn" class="icon-btn-storage" title="Open persistent assets folder">📂 Open Folder</button>
+            <!-- Cache & Storage Management -->
+            <div class="setting-card">
+                <div class="card-title">🧹 Cache & Storage</div>
+                <div style="font-size: 11px; color: var(--text-muted); margin-bottom: 8px; line-height: 1.4;">
+                    Clear downloaded icon/emoji temporary cache to free up disk space on low-end devices. Your linked local folders and project files will never be touched.
                 </div>
-                <div class="storage-path-display" id="storage-path-display" title="Persistent safe location on your computer - never gets deleted">Documents/Emoji Library Assets</div>
+                <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 6px;">
+                    <button id="btn-clear-cache" class="secondary-btn danger" style="flex: 1; padding: 6px 10px; font-size: 11px; display: flex; align-items: center; justify-content: center; gap: 6px;" title="Clear temporary icons and emojis cache">
+                        <svg width="12" height="12" viewBox="0 0 24 24"><path fill="currentColor" d="M9 3v1H4v2h1v13a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V6h1V4h-5V3H9zm2 2h2v1h-2V5zm-2 4h2v9H9V9zm4 0h2v9h-2V9z"/></svg>
+                        <span>Clear Cache</span>
+                    </button>
+                    <button id="open-assets-btn" class="secondary-btn" style="flex: 1; padding: 6px 10px; font-size: 11px; display: flex; align-items: center; justify-content: center; gap: 6px;" title="Open cache folder in explorer">
+                        <span>📂 Open Folder</span>
+                    </button>
+                </div>
+                <div id="cache-status-msg" style="font-size: 10.5px; color: #02a676; margin-top: 4px; display: none;"></div>
+                <div class="storage-path-display" id="storage-path-display" style="margin-top: 6px;" title="Cache location on your computer">Documents/Icons</div>
             </div>
 
             <!-- Updates Section -->

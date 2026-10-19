@@ -140,6 +140,9 @@ const PluginUpdater = (function () {
             const isNewer = compareVersions(data.version, currentVer) > 0;
 
             if (!isManual) {
+                if (sessionStorage.getItem('kairesh_dismissed_update_' + data.version) === 'true') {
+                    return;
+                }
                 const skipped = Settings.get('skipUpdateVersion');
                 if (isNewer && skipped === data.version) return;
 
@@ -213,7 +216,12 @@ const PluginUpdater = (function () {
         if (drawer) drawer.style.display = 'none';
 
         if (btnClose) {
-            btnClose.onclick = () => { modal.style.display = 'none'; };
+            btnClose.onclick = () => {
+                try {
+                    sessionStorage.setItem('kairesh_dismissed_update_' + data.version, 'true');
+                } catch (_) {}
+                modal.style.display = 'none';
+            };
         }
 
         if (btnLater) {

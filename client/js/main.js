@@ -297,11 +297,6 @@ function setupCardDrag(card, item) {
     if (!card || !item) return;
     card.setAttribute('draggable', 'true');
 
-    // Pre-cache file on pointerenter so it is written to disk before drag starts
-    card.addEventListener('pointerenter', () => {
-        prepareAssetFileSync(card, item);
-    });
-
     card.addEventListener('dragstart', (e) => {
         try {
             const localPath = prepareAssetFileSync(card, item);
@@ -2087,6 +2082,79 @@ document.addEventListener('DOMContentLoaded', () => {
             currentTone = btn.dataset.tone;
             renderEmojis(true);
         });
+    function clearInternalCache() {
+        const statusMsg = document.getElementById('cache-status-msg');
+        const updateCacheStatus = (msg, isErr = false) => {
+            if (statusMsg) {
+                statusMsg.style.display = 'block';
+                statusMsg.style.color = isErr ? '#ff453a' : '#02a676';
+                statusMsg.textContent = msg;
+                setTimeout(() => { if (statusMsg) statusMsg.style.display = 'none'; }, 5000);
+            }
+            updateStatus(msg, isErr ? 'error' : 'success');
+        };
+
+        try {
+            if (!fs || !path) {
+                updateCacheStatus("File system module unavailable.", true);
+                return;
+            }
+
+            const cacheDirs = [
+                path.join(os.homedir(), "Documents", "Icons"),
+                "C:\\Icons"
+            ];
+
+            // STRICT SAFETY CHECK: Never touch user-linked local folders!
+            const linkedFolders = (typeof AssetManager !== "undefined" && AssetManager.getLinkedFolders)
+                ? AssetManager.getLinkedFolders().map(f => path.resolve(f).toLowerCase())
+                : [];
+
+            let deletedCount = 0;
+            let freedBytes = 0;
+
+            cacheDirs.forEach(dir => {
+                if (!dir || !fs.existsSync(dir)) return;
+
+                const resolvedDir = path.resolve(dir).toLowerCase();
+                const isUserFolder = linkedFolders.some(lf => resolvedDir === lf || (resolvedDir.startsWith(lf) && !resolvedDir.includes("documents\\icons")));
+                if (isUserFolder) {
+                    console.warn("[Cache] Protected user linked folder skipped:", dir);
+                    return;
+                }
+
+                try {
+                    const files = fs.readdirSync(dir);
+                    for (const f of files) {
+                        if (f.startsWith('icon_') || f.startsWith('emoji_') || f.startsWith('clipboard_') || f.toLowerCase().endsWith('.svg') || f.toLowerCase().endsWith('.png')) {
+                            const fp = path.join(dir, f);
+                            try {
+                                const stat = fs.statSync(fp);
+                                freedBytes += stat.size;
+                                fs.unlinkSync(fp);
+                                deletedCount++;
+                            } catch (_) {}
+                        }
+                    }
+                } catch (dirErr) {
+                    console.warn("[Cache] Clean dir error:", dir, dirErr);
+                }
+            });
+
+            // Clear in-memory SVG batch cache
+            if (typeof IconEngine !== "undefined" && IconEngine.batchDataCache && typeof IconEngine.batchDataCache.clear === "function") {
+                IconEngine.batchDataCache.clear();
+            }
+
+            const freedKB = Math.round(freedBytes / 1024);
+            const msg = deletedCount > 0
+                ? `Cache cleared: ${deletedCount} files removed (${freedKB > 1024 ? (freedKB / 1024).toFixed(1) + ' MB' : freedKB + ' KB'} freed).`
+                : "Cache is already clean! (0 files).";
+            updateCacheStatus(msg);
+        } catch (err) {
+            console.error("clearInternalCache error:", err);
+            updateCacheStatus(`Failed to clear cache: ${err.message}`, true);
+        }
     }
 
     // Settings Drawer
@@ -2117,6 +2185,15 @@ document.addEventListener('DOMContentLoaded', () => {
             if (cp) {
                 cp.exec(`explorer "${currentDir}"`);
             }
+        });
+    }
+
+    // Wire Clear Cache Button in Settings
+    const btnClearCache = document.getElementById('btn-clear-cache');
+    if (btnClearCache) {
+        btnClearCache.addEventListener('click', (e) => {
+            e.preventDefault();
+            clearInternalCache();
         });
     }
 
